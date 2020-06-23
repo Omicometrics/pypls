@@ -40,6 +40,7 @@ def _nipals(X, y, tol=1e-10, max_iter=1000, dot=np.dot):
         Chemometr Intell Lab Sys 2001, 58, 109–130.
     [2] Bylesjo M, et al. Model Based Preprocessing and Background
         Elimination: OSC, OPLS, and O2PLS. in Comprehensive Chemometrics.
+
     """
     u = y
     i = 0
@@ -65,6 +66,7 @@ class _opls():
         """
         TODO:
         1. add arg for specifying the method for performing PLS
+
         """
         pass
 
@@ -161,6 +163,7 @@ class _opls():
             Corrected data, with same matrix size with input X.
         T: np.ndarray
             Orthogonal score, n by n_component.
+
         """
         # TODO: Check X type and dimension consistencies between X and
         # scores in model.
@@ -250,6 +253,7 @@ class _pls():
 
         Return
         PLS object
+
         """
         n, r = X.shape
         # preallocation
