@@ -19,6 +19,9 @@ class Scaler:
         elif scaler == "minmax":
             self.scaler = self._minmaxscaling
 
+        self._center: np.ndarray = None
+        self._normalizer: np.ndarray = None
+
     def fit(self, x: np.ndarray) -> np.ndarray:
         """
         Fit scaler model.

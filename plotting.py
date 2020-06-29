@@ -54,7 +54,7 @@ class Plots:
         else:
             tp1 = self._model.scores[:, 0]
             tp2 = self._model.scores[:, 1]
-            xlabel, ylabel = "$t_p$1", "$t_p$2"
+            xlabel, ylabel = "$t_1$", "$t_2$"
 
         y1, y2 = self._groups[0], self._groups[1]
         y = self._model.y
@@ -200,7 +200,7 @@ class Plots:
 
         plt.show()
 
-    def plot_cv_erros(self):
+    def plot_cv_errors(self):
         """ Plot cross validation classification errors.
 
         Returns

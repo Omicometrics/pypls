@@ -156,6 +156,7 @@ class CrossValidation:
         # save metrics
         self._ypred = ypred[:, :npc0]
         self._pressy = pressy[:, :npc0]
+        self._ssy = sum(ssy)
         self._n = n
         self.y = y
 
@@ -164,7 +165,6 @@ class CrossValidation:
             self._Tortho = tortho[:, :npc0]
             self._Tpred = tpred[:, :npc0]
             self._ssx = ssx
-            self._ssy = sum(ssy)
             self._pcv = pcv
 
         # summarize cross validation results
@@ -232,6 +232,22 @@ class CrossValidation:
         if self.estimator_id != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._Tpred[:, self._opt_component]
+
+    @property
+    def scores(self) -> np.ndarray:
+        """
+
+        Returns
+        -------
+        np.ndarray
+            The first predictive score, if the method is OPLS/OPLS-DA,
+            otherwise is the scores of X
+
+        """
+        if self.estimator_id == "opls":
+            return self.predictive_score
+        else:
+            return self.estimator.scores_x
 
     @property
     def q2(self) -> float:
@@ -442,7 +458,7 @@ class CrossValidation:
         npc = self._opt_component+1
 
         # fit the model
-        self.estimator.fit(x_scale.copy(), y_scale, n_comp=npc)
+        self.estimator.fit(x_scale.copy(), y_scale.copy(), n_comp=npc)
 
         # summary the fitting
         self._summary_fit(x_scale, y_scale)
@@ -490,7 +506,8 @@ class CrossValidation:
         else:
             xrec = np.dot(self.estimator.scores_x[:, :npc],
                           self.estimator.loadings_x[:, :npc].T)
-            yrec = np.dot(self.scores_x[:, :npc], self.weights_y[:npc])
+            yrec = np.dot(self.estimator.scores_x[:, :npc],
+                          self.estimator.weights_y[:npc])
 
         # r2x
         self._r2x = 1 - ((x - xrec) ** 2).sum() / (x ** 2).sum()
