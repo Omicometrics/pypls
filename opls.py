@@ -3,7 +3,7 @@ Orthogonal Projection on Latent Structure (O-PLS)
 """
 import numpy as np
 from numpy import linalg as la
-
+from typing import Tuple, Any, Union
 from base import nipals
 
 
@@ -133,7 +133,9 @@ class OPLS:
 
         self.npc = npc
 
-    def predict(self, X, n_component=None, return_scores=False):
+    def predict(
+            self, X, n_component: int = None, return_scores: bool = False
+    ) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         """ Predict the new coming data matrx. """
         if n_component is None or n_component > self.npc:
             n_component = self.npc
@@ -145,16 +147,16 @@ class OPLS:
 
         return y
 
-    def correct(self, x: np.ndarray,
-                n_component: int = None,
-                return_scores: bool =False,
-                dot=np.dot):
+    def correct(
+            self, x: np.ndarray, n_component: int = None,
+            return_scores: bool = False, dot=np.dot
+    ) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         """
         Correction of X
 
         Parameters
         ----------
-        X: np.ndarray
+        x: np.ndarray
             Data matrix with size n by c, where n is number of
             samples, and c is number of variables
         n_component: int | None
@@ -165,9 +167,9 @@ class OPLS:
 
         Returns
         -------
-        X: np.ndarray
+        xc: np.ndarray
             Corrected data, with same matrix size with input X.
-        T: np.ndarray
+        t: np.ndarray
             Orthogonal score, n by n_component.
 
         """
@@ -178,22 +180,22 @@ class OPLS:
             n_component = self.npc
 
         if xc.ndim == 1:
-            T = np.empty(n_component)
+            t = np.empty(n_component)
             for nc in range(n_component):
-                t = dot(xc, self._Wortho[:, nc])
-                xc -= t * self._Portho[:, nc]
-                T[nc] = t
+                t_ = dot(xc, self._Wortho[:, nc])
+                xc -= t_ * self._Portho[:, nc]
+                t[nc] = t_
         else:
             n, c = xc.shape
-            T = np.empty((n, n_component))
+            t = np.empty((n, n_component))
             # scores
             for nc in range(n_component):
-                t = dot(xc, self._Wortho[:, nc])
-                xc -= t[:, np.newaxis] * self._Portho[:, nc]
-                T[:, nc] = t
+                t_ = dot(xc, self._Wortho[:, nc])
+                xc -= t_[:, np.newaxis] * self._Portho[:, nc]
+                t[:, nc] = t_
 
         if return_scores:
-            return xc, T
+            return xc, t
 
         return xc
 

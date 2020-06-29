@@ -56,13 +56,14 @@ class CrossValidation:
         self._Tpred: np.ndarray = None
         self._ssx: dict = None
         self._ssy: list = None
-        self.y: np.ndarray = None
         self._pressy: np.ndarray = None
         self._n: int = None
         self._pcv: dict = None
-        self._opt_component: int  =None
+        self._opt_component: int = None
         self._mis_classifications: list = None
         self._q2: np.ndarray = None
+        self.y: np.ndarray = None
+        self.groups: dict = None
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:
         """
@@ -72,7 +73,7 @@ class CrossValidation:
         ----------
         x : np.ndarray
             Variable matrix with size n samples by p variables.
-        y : np.ndarray
+        y : np.ndarray | list
             Dependent matrix with size n samples by 1. The values in
             this vector must be 0 and 1, otherwise the classification
             performance will be wrongly concluded.
@@ -83,14 +84,20 @@ class CrossValidation:
 
         """
         # TODO: Check dimension consistencies between X and y.
+        # set the labels in y to 0 and 1, and name the groups using
+        # the labels in y
+        y = self._reset_y(y)
+        # matrix dimension
         n, p = x.shape
+        # max number of principal components
         npc0 = min(n, p)
+        # preallocation
         ssx = collections.defaultdict(lambda: collections.defaultdict(list))
         ssy = []
-        ypred, pressy = np.empty((n, npc0)), np.empty((n, npc0))
-        tortho, tpred = np.empty((n, npc0)), np.empty((n, npc0))
+        ypred, pressy = np.zeros((n, npc0)), np.zeros((n, npc0))
+        tortho, tpred = np.zeros((n, npc0)), np.zeros((n, npc0))
         pcv = collections.defaultdict(list)
-        for train_index, test_index in self._split(n):
+        for train_index, test_index in self._split(y):
             xtr, xte = x[train_index], x[test_index]
             ytr, yte = y[train_index], y[test_index]
 
@@ -125,8 +132,8 @@ class CrossValidation:
 
                     # save the parameters for model quality assessments
                     # Orthogonal and predictive scores
-                    if xte_scale.shape[0] == 1:
-                        tortho[test_index, 0] = tcorr[0][0]
+                    if xte_scale.ndim == 1:
+                        tortho[test_index, k-1] = tcorr[0]
                     else:
                         tortho[test_index, k-1] = tcorr[:, 0]
                     tpred[test_index, k-1] = tp_k
@@ -425,13 +432,13 @@ class CrossValidation:
         """
         return self._mis_classifications
 
-    def _split(self, n: int) -> typing.Iterable:
+    def _split(self, y: np.ndarray) -> typing.Iterable:
         """
         Split total number of n samples into training and testing data.
 
         Parameters
         ----------
-        n: int
+        y: np.ndarray
             Number of samples
 
         Returns
@@ -439,12 +446,32 @@ class CrossValidation:
         iterator
 
         """
+        n, k = y.size, self.kfold
+        groups, counts = np.unique(y, return_counts=True)
+
+        # check the number
+        if counts.min() < k and n != k:
+            raise ValueError(f"The fold number {k} is larger than the least"
+                             f" group number {counts.min()}.")
+
         indices = np.arange(n, dtype=int)
-        blk = n // self.kfold
-        for i in range(self.kfold):
-            train_index = np.ones(n, dtype=bool)
-            train_index[blk * i: min(blk * (i + 1), n)] = False
-            yield indices[train_index], indices[np.logical_not(train_index)]
+        # leave one out cross validation
+        if n == k:
+            for i in indices:
+                yield np.delete(indices, i), i
+
+        # k fold cross validation
+        else:
+            group_index, blks = [], []
+            for g, nk in zip(groups, counts):
+                group_index.append(np.where(y == g)[0])
+                blks.append(nk // k if nk % k == 0 else nk // k + 1)
+            # splitting data
+            for i in range(k):
+                trains = np.ones(n, dtype=bool)
+                for blk, idx, nk in zip(blks, group_index, counts):
+                    trains[idx[blk * i: min(blk * (i + 1), nk)]] = False
+                yield indices[trains], indices[np.logical_not(trains)]
 
     def _create_optimal_model(self, x: np.ndarray, y: np.ndarray) -> None:
         """
@@ -547,3 +574,39 @@ class CrossValidation:
                 )
             self._r2xcorr = r2xcorr
             self._r2xyo = r2xyo
+
+    def _reset_y(self, y) -> np.ndarray:
+        """
+        Reset the labels in y to 0 and 1, and name the groups using the
+        labels in y.
+
+        Parameters
+        ----------
+        y: np.ndarray | list
+
+        Returns
+        -------
+        np.ndarray
+            Label reset in y.
+
+        """
+        if isinstance(y, list):
+            y = np.array([str(v) for v in y], dtype=str)
+
+        # groups
+        labels = np.unique(y)
+        # only binary classification is allowed.
+        if labels.size != 2:
+            raise ValueError(
+                "Only binary classification is currently accepted."
+            )
+
+        # reset the values for each class
+        groups = collections.defaultdict()
+        y_reset = np.zeros_like(y, dtype=float)
+        for i, label in enumerate(labels):
+            y_reset[y == label] = i
+            groups[i] = label if isinstance(label, str) else str(int(label))
+
+        self.groups = groups
+        return y_reset

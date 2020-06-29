@@ -18,7 +18,6 @@ class Plots:
     """
     def __init__(self, cvmodel):
         self._model = cvmodel
-        self._get_groups()
 
     def plot_scores(self, save_plot=False, file_name=None) -> None:
         """
@@ -56,11 +55,10 @@ class Plots:
             tp2 = self._model.scores[:, 1]
             xlabel, ylabel = "$t_1$", "$t_2$"
 
-        y1, y2 = self._groups[0], self._groups[1]
-        y = self._model.y
+        y, groups = self._model.y, self._model.groups
         # plot the figure
-        _ = plt.plot(tp1[y == y1], tp2[y == y1], "o", c="r", label="Group1")
-        _ = plt.plot(tp1[y == y2], tp2[y == y2], "^", c="b", label="Group2")
+        _ = plt.plot(tp1[y == 0], tp2[y == 0], "o", c="r", label=groups[0])
+        _ = plt.plot(tp1[y == 1], tp2[y == 1], "^", c="b", label=groups[1])
         # set up axis limits
         xlim, ylim = plt.xlim(), plt.ylim()
         _ = plt.plot(xlim, [0, 0], "k--", lw=0.8)
@@ -121,7 +119,10 @@ class Plots:
 
         # plot
         fig, ax = plt.subplots(figsize=(10, 5))
-        _ = ax.scatter(covx, corrx, marker="o", s=40, c=covx, cmap="jet", edgecolors="none")
+        _ = ax.scatter(
+            covx, corrx,
+            marker="o", s=40, c=covx, cmap="jet", edgecolors="none"
+        )
         _ = ax.set_xlabel("cov($t_p$, X)", fontsize=16)
         _ = ax.set_ylabel("corr($t_p$, X)", fontsize=16)
         plt.colorbar(ax.get_children()[0], ax=ax)
@@ -216,13 +217,3 @@ class Plots:
         _ = plt.xlim(left=0)
         plt.tight_layout()
         plt.show()
-
-    def _get_groups(self) -> None:
-        """ Groups.
-
-        Returns
-        -------
-        plotting object
-
-        """
-        self._groups = np.unique(self._model.y)
