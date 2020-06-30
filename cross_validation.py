@@ -62,6 +62,8 @@ class CrossValidation:
         self._opt_component: int = None
         self._mis_classifications: list = None
         self._q2: np.ndarray = None
+        self._npc0: int = None
+        self._x: np.ndarray = None
         self.y: np.ndarray = None
         self.groups: dict = None
 
@@ -165,6 +167,8 @@ class CrossValidation:
         self._pressy = pressy[:, :npc0]
         self._ssy = sum(ssy)
         self._n = n
+        self._npc0 = npc0
+        self._x = x
         self.y = y
 
         # opls specific metrics
@@ -201,6 +205,31 @@ class CrossValidation:
         if self.estimator_id == "opls":
             x = self.estimator.correct(x.copy(), n_component=npc)
         return self.estimator.predict(x, n_component=npc)
+
+    def reset_optimal_num_component(self, k: int) -> None:
+        """
+        Reset the optimal number of components for manual setup.
+
+        Parameters
+        ----------
+        k: int
+            Number of components according to the error plot.
+
+        Returns
+        -------
+        None
+
+        """
+        if not isinstance(k, int) or k <= 0:
+            raise ValueError("The number must be a positive integer.")
+
+        if k > self._npc0:
+            raise ValueError("The number must not exceed the maximum "
+                             f" number of components {self._npc0}.")
+
+        self._opt_component = k
+        # re-fit the model using the updated optimal number of components
+        self._create_optimal_model(self._x, self.y)
 
     @property
     def orthogonal_score(self) -> np.ndarray:
