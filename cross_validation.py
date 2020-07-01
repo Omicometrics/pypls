@@ -35,10 +35,7 @@ class CrossValidation:
     CrossValidation object
 
     """
-    def __init__(self,
-                 estimator: str = "opls",
-                 kfold: int = 10,
-                 scaler: str = "pareto") -> None:
+    def __init__(self, estimator="opls", kfold=10, scaler="pareto") -> None:
         # number of folds
         self.kfold = kfold
         # estimator
@@ -67,7 +64,7 @@ class CrossValidation:
         self.y: np.ndarray = None
         self.groups: dict = None
 
-    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+    def fit(self, x, y) -> None:
         """
         Fitting variable matrix X
 
@@ -183,7 +180,7 @@ class CrossValidation:
         # refit for a final model
         self._create_optimal_model(x, y)
 
-    def predict(self, x: np.ndarray) -> np.ndarray:
+    def predict(self, x) -> np.ndarray:
         """Do prediction using optimal model.
 
         Parameters
@@ -206,7 +203,7 @@ class CrossValidation:
             x = self.estimator.correct(x.copy(), n_component=npc)
         return self.estimator.predict(x, n_component=npc)
 
-    def reset_optimal_num_component(self, k: int) -> None:
+    def reset_optimal_num_component(self, k) -> None:
         """
         Reset the optimal number of components for manual setup.
 
@@ -461,7 +458,7 @@ class CrossValidation:
         """
         return self._mis_classifications
 
-    def _split(self, y: np.ndarray) -> typing.Iterable:
+    def _split(self, y) -> typing.Iterable:
         """
         Split total number of n samples into training and testing data.
 
@@ -502,7 +499,7 @@ class CrossValidation:
                     trains[idx[blk * i: min(blk * (i + 1), nk)]] = False
                 yield indices[trains], indices[np.logical_not(trains)]
 
-    def _create_optimal_model(self, x: np.ndarray, y: np.ndarray) -> None:
+    def _create_optimal_model(self, x, y) -> None:
         """
         Create final model based on the optimal number of components.
         """
@@ -519,7 +516,7 @@ class CrossValidation:
         # summary the fitting
         self._summary_fit(x_scale, y_scale)
 
-    def _summary_fit(self, x: np.ndarray, y: np.ndarray) -> None:
+    def _summary_fit(self, x, y) -> None:
         """
 
         Parameters

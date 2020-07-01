@@ -47,8 +47,7 @@ class OPLS:
         # total number of components
         self.npc: int = None
 
-    def fit(self, x: np.ndarray, y: np.ndarray,
-            n_comp: int = None, dot=np.dot) -> None:
+    def fit(self, x, y, n_comp=None, dot=np.dot) -> None:
         """
         Fit PLS model.
 
@@ -134,7 +133,7 @@ class OPLS:
         self.npc = npc
 
     def predict(
-            self, X, n_component: int = None, return_scores: bool = False
+            self, X, n_component=None, return_scores=False
     ) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         """ Predict the new coming data matrx. """
         if n_component is None or n_component > self.npc:
@@ -148,8 +147,7 @@ class OPLS:
         return y
 
     def correct(
-            self, x: np.ndarray, n_component: int = None,
-            return_scores: bool = False, dot=np.dot
+            self, x, n_component=None, return_scores=False, dot=np.dot
     ) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
         """
         Correction of X
@@ -199,14 +197,37 @@ class OPLS:
 
         return xc
 
-    def predictive_score(self, n_component=None):
-        """ Return first predictive score. """
+    def predictive_score(self, n_component=None) -> np.ndarray:
+        """
+        Parameters
+        ----------
+        n_component: int
+            The component number.
+
+        Returns
+        -------
+        np.ndarray
+            The first predictive score.
+
+        """
         if n_component is None or n_component > self.npc:
             n_component = self.npc
         return self._T[:, n_component-1]
 
-    def ortho_score(self, n_component=None):
-        """ Return first orthogonal score. """
+    def ortho_score(self, n_component=None) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        n_component: int
+            The component number.
+
+        Returns
+        -------
+        np.ndarray
+            The first orthogonal score.
+
+        """
         if n_component is None or n_component > self.npc:
             n_component = self.npc
         return self._Tortho[:, n_component-1]

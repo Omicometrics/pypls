@@ -19,7 +19,8 @@ class Plots:
     def __init__(self, cvmodel):
         self._model = cvmodel
 
-    def plot_scores(self, save_plot=False, file_name=None) -> None:
+    def plot_scores(self, save_plot: bool = False,
+                    file_name: str = None) -> None:
         """
         Plot scores. If OPLS/OPLS-DA is specified, the score plot for
         OPLS/OPLS-DA is used, i.e., the first component of orthogonal
@@ -79,7 +80,8 @@ class Plots:
 
         plt.show()
 
-    def splot(self, save_plot=False, file_name=None) -> None:
+    def splot(self, save_plot: bool = False,
+              file_name: bool = None) -> None:
         """
         S-plot
 
@@ -135,8 +137,9 @@ class Plots:
 
         plt.show()
 
-    def jackknife_loading_plot(self, alpha=0.05,
-                               save_plot=False, file_name=None) -> tuple:
+    def jackknife_loading_plot(self, alpha: float = 0.05,
+                               save_plot: bool = False,
+                               file_name: str = None) -> tuple:
         """
         Loading plot with Jack-knife intervals.
 
@@ -201,7 +204,10 @@ class Plots:
 
         plt.show()
 
-    def plot_cv_errors(self):
+        return loading_mean, loading_intervals
+
+    def plot_cv_errors(self, save_plot: bool = False,
+                       file_name: str = None) -> None:
         """ Plot cross validation classification errors.
 
         Returns
@@ -216,4 +222,10 @@ class Plots:
         _ = plt.ylabel("Number of Misclassifications", fontsize=16)
         _ = plt.xlim(left=0)
         plt.tight_layout()
+
+        if save_plot:
+            if "." not in file_name:
+                file_name += ".png"
+            plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+
         plt.show()
