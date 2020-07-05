@@ -126,7 +126,7 @@ can save each plot to `some_string.png` with `dpi=1200`.
     cv.reset_optimal_num_component(n)
     ```
 ## Author
-Nai-ping Dong
+Nai-ping Dong  
 Email: naiping.dong@hotmail.com
 
 ## License
