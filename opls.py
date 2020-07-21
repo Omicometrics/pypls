@@ -47,7 +47,7 @@ class OPLS:
         # total number of components
         self.npc: int = None
 
-    def fit(self, x, y, n_comp=None, dot=np.dot) -> None:
+    def fit(self, x, y, n_comp=None, dot=np.dot):
         """
         Fit PLS model.
 
@@ -98,9 +98,9 @@ class OPLS:
             # orthoganol weights
             w_ortho = p - (dot(tw, p) * tw)
             w_ortho /= la.norm(w_ortho)
-            # orthoganol scores
+            # orthogonal scores
             t_ortho = dot(x, w_ortho)
-            # orthoganol loadings
+            # orthogonal loadings
             p_ortho = dot(t_ortho, x) / dot(t_ortho, t_ortho)
             # update X to the residue matrix
             x -= t_ortho[:, np.newaxis] * p_ortho
@@ -132,10 +132,25 @@ class OPLS:
 
         self.npc = npc
 
-    def predict(
-            self, X, n_component=None, return_scores=False
-    ) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
-        """ Predict the new coming data matrx. """
+    def predict(self, X, n_component=None, return_scores=False):
+        """
+        Predict the new coming data matrix.
+        Parameters
+        ----------
+        X: np.ndarray
+            Variable matrix with size n samples by p variables.
+        n_component: int | None
+            Number of components.
+        return_scores: bool
+            Whether the scores should be returned.
+
+        Returns
+        -------
+        y: np.ndarray
+            Predicted scores for classification.
+        score: np.ndarray
+            Predictive scores.
+        """
         if n_component is None or n_component > self.npc:
             n_component = self.npc
         coef = self.coef[n_component - 1]
@@ -146,9 +161,7 @@ class OPLS:
 
         return y
 
-    def correct(
-            self, x, n_component=None, return_scores=False, dot=np.dot
-    ) -> Union[Tuple[np.ndarray, np.ndarray], np.ndarray]:
+    def correct(self, x, n_component=None, return_scores=False, dot=np.dot):
         """
         Correction of X
 
@@ -197,7 +210,7 @@ class OPLS:
 
         return xc
 
-    def predictive_score(self, n_component=None) -> np.ndarray:
+    def predictive_score(self, n_component=None):
         """
         Parameters
         ----------
@@ -214,7 +227,7 @@ class OPLS:
             n_component = self.npc
         return self._T[:, n_component-1]
 
-    def ortho_score(self, n_component=None) -> np.ndarray:
+    def ortho_score(self, n_component=None):
         """
 
         Parameters

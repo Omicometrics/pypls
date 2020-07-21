@@ -5,7 +5,7 @@ in metabolomics. The visualization of score plots, S-plot, jack-knife
 confidence intervals for loading profile, and mis-classification number
 in cross validation are also implemented.
 ## Prerequisites
-This package is ceated by ```Python 3.7```, with the following packages
+This package is created by ```Python 3.7```, with the following packages
 required:
 ```
 numpy 1.17.2
@@ -104,7 +104,7 @@ can save each plot to `some_string.png` with `dpi=1200`.
     validation: `cv.optimal_component_num`
 6. Prediction of new data
     ```
-    predicted_scores = cv.predict(X)
+    predicted_scores = cv.predict(X, return_scores=False)
     ```
     To predict the class, use
     ```
@@ -113,11 +113,12 @@ can save each plot to `some_string.png` with `dpi=1200`.
     This will output values of `0` and `1` to indicate the
     groups of samples submitted for prediction. `cv` object
     has the attribute `groups` storing the group names which
-    were assigned in `labels` input in training. To access the
+    were assigned in `labels` input for training. To access the
     group names after prediction, use
     ```
     print([cv.groups[g] for g in predicted_groups])
     ```
+    Set `return_scores=True` will return predictive scores for OPLS.
 7. Other methods  
     `cv` provides a method `reset_optimal_num_component` to reset
     the optimal number of components manually, instead of defaultedly
@@ -125,6 +126,31 @@ can save each plot to `some_string.png` with `dpi=1200`.
     ```
     cv.reset_optimal_num_component(n)
     ```
+
+####Permutation Test
+To evaluate the significance of the constructed model, permutation test
+is commonly used, which generates large number of random models to justify
+the significance of the PLS/OPLS-DA model.
+```
+# Permutation test for OPLS-DA, with leave-one-out cross validation
+# CV object
+cv = cross_validation.CrossValidation(kfold=X.shape[0], estimator="opls")
+cv.fit(X, labels)
+# number of mis-classification (NMC) for current data
+nmc = cv.min_nmc
+# calculate NMCs of random models, with 2000 permutations
+num_permutations = 2000
+random_nmcs = []
+for i in range(num_permutations):
+    # randomly permute labels
+    rand_labels = np.random.permutation(labels)
+    # refit the model using permuted labels
+    cv.fit(X, rand_labels)
+    rand_nmcs.append(cv.min_nmc)
+# p value
+p = (sum(rand_nmc <= nmc for rand_nmc in rand_nmcs) + 1) / num_permutations
+```
+
 ## Author
 Nai-ping Dong
 Email: naiping.dong@hotmail.com
@@ -134,11 +160,15 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](https:
 
 ## References
 [1] Brereton RG, Lloyd GR. Partial least squares discriminant analysis:
-taking the magic away. *J Chemometr*. 2014, 18, 213-225.  
-[2] Trygg J, Wold S. Projection on Latent Structure (OPLS). *J
-Chemometr*. 2002, 16, 119-128.  
+taking the magic away. *J Chemometr*. 2014, 18, 213-225.
+[Link](https://onlinelibrary.wiley.com/doi/abs/10.1002/cem.2609)  
+[2] Trygg J, Wold S. Projection on Latent Structure (O-PLS). *J
+Chemometr*. 2002, 16, 119-128.
+[Link](https://onlinelibrary.wiley.com/doi/abs/10.1002/cem.695)   
 [3] Trygg J, Wold S. O2-PLS, a two-block (X-Y) latent variable regression
-(LVR) method with a integral OSC filter. *J Chemometr*. 2003, 17, 53-64.  
+(LVR) method with a integral OSC filter. *J Chemometr*. 2003, 17, 53-64.
+[Link](https://onlinelibrary.wiley.com/doi/abs/10.1002/cem.775)  
 [4] Wiklund S, *et al*. Visualization of GC/TOF-MS-Based Metabolomics
 Data for Identification of Biochemically Interesting Compounds Using
 OPLS Class Models. *Anal Chem*. 2008, 80, 115-122.
+[Link](https://pubs.acs.org/doi/abs/10.1021/ac0713510)

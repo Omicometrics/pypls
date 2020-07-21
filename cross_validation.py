@@ -35,7 +35,7 @@ class CrossValidation:
     CrossValidation object
 
     """
-    def __init__(self, estimator="opls", kfold=10, scaler="pareto") -> None:
+    def __init__(self, estimator="opls", kfold=10, scaler="pareto"):
         # number of folds
         self.kfold = kfold
         # estimator
@@ -64,7 +64,7 @@ class CrossValidation:
         self.y: np.ndarray = None
         self.groups: dict = None
 
-    def fit(self, x, y) -> None:
+    def fit(self, x, y):
         """
         Fitting variable matrix X
 
@@ -180,18 +180,24 @@ class CrossValidation:
         # refit for a final model
         self._create_optimal_model(x, y)
 
-    def predict(self, x) -> np.ndarray:
+    def predict(self, x, return_scores=False):
         """Do prediction using optimal model.
 
         Parameters
         ----------
         x: np.ndarray
             Variable matrix with size n samples by p variables.
+        return_scores: bool
+            For OPLS, it's possible to return predictive scores. Thus
+            setting this True with `estimator` being "opls" will return
+            the predictive scores
 
         Returns
         -------
-        np.ndarray
+        y: np.ndarray
             Predictions for the x
+        scores: np.ndarray
+            Predictive scores for OPLS
 
         """
         # TODO: check the dimension consistencies between the training
@@ -201,6 +207,9 @@ class CrossValidation:
         x = self.scaler.scale(x)
         if self.estimator_id == "opls":
             x = self.estimator.correct(x.copy(), n_component=npc)
+            return self.estimator.predict(
+                x, n_component=npc, return_scores=return_scores
+            )
         return self.estimator.predict(x, n_component=npc)
 
     def reset_optimal_num_component(self, k) -> None:
