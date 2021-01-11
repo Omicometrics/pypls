@@ -48,21 +48,21 @@ class CrossValidation:
         self.scaler = pretreatment.Scaler(scaler=scaler)
 
         # initialize other attributes, but should be HIDDEN
-        self._ypred: np.ndarray = None
-        self._Tortho: np.ndarray = None
-        self._Tpred: np.ndarray = None
-        self._ssx: dict = None
-        self._ssy: list = None
-        self._pressy: np.ndarray = None
-        self._n: int = None
-        self._pcv: dict = None
-        self._opt_component: int = None
-        self._mis_classifications: list = None
-        self._q2: np.ndarray = None
-        self._npc0: int = None
-        self._x: np.ndarray = None
-        self.y: np.ndarray = None
-        self.groups: dict = None
+        self._ypred: typing.Optional[np.ndarray] = None
+        self._Tortho: typing.Optional[np.ndarray] = None
+        self._Tpred: typing.Optional[np.ndarray] = None
+        self._ssx: typing.Optional[dict] = None
+        self._ssy: typing.Optional[list] = None
+        self._pressy: typing.Optional[np.ndarray] = None
+        self._n: typing.Optional[int] = None
+        self._pcv: typing.Optional[dict] = None
+        self._opt_component: typing.Optional[int] = None
+        self._mis_classifications: typing.Optional[list] = None
+        self._q2: typing.Optional[np.ndarray] = None
+        self._npc0: typing.Optional[int] = None
+        self._x: typing.Optional[np.ndarray] = None
+        self.y: typing.Optional[np.ndarray] = None
+        self.groups: typing.Optional[dict] = None
 
     def fit(self, x, y):
         """
@@ -589,7 +589,7 @@ class CrossValidation:
         # number of mis-classifications
         _pred_class = (self._ypred > 0).astype(float)
         nmc = ((_pred_class - self.y[:, np.newaxis]) != 0).sum(axis=0)
-        j = np.argmin(nmc).astype(int)
+        j = int(np.argmin(nmc))
         # optimal number of components
         self._opt_component: int = j
         self._mis_classifications = nmc

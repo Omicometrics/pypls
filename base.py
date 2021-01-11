@@ -3,10 +3,7 @@ import numpy.linalg as la
 import typing
 
 
-def nipals(x: np.ndarray, y: np.ndarray,
-           tol: float = 1e-10,
-           max_iter: int = 1000,
-           dot=np.dot) -> typing.Tuple:
+def nipals(x, y, tol=1e-10, max_iter=1000) -> typing.Tuple:
     """
     Non-linear Iterative Partial Least Squares
 
@@ -45,10 +42,10 @@ def nipals(x: np.ndarray, y: np.ndarray,
     i = 0
     d = tol * 10
     while d > tol and i <= max_iter:
-        w = dot(u, x) / dot(u, u)
+        w = np.dot(u, x) / np.dot(u, u)
         w /= la.norm(w)
-        t = dot(x, w)
-        c = dot(t, y) / dot(t, t)
+        t = np.dot(x, w)
+        c = np.dot(t, y) / np.dot(t, t)
         u_new = y * c / (c * c)
         d = la.norm(u_new - u) / la.norm(u_new)
         u = u_new

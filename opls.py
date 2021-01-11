@@ -3,7 +3,7 @@ Orthogonal Projection on Latent Structure (O-PLS)
 """
 import numpy as np
 from numpy import linalg as la
-from typing import Tuple, Any, Union
+from typing import Optional
 from base import nipals
 
 
@@ -30,24 +30,24 @@ class OPLS:
 
         """
         # orthogonal score matrix
-        self._Tortho: np.ndarray = None
+        self._Tortho: Optional[np.ndarray] = None
         # orthogonal loadings
-        self._Portho: np.ndarray = None
+        self._Portho: Optional[np.ndarray] = None
         # loadings
-        self._Wortho: np.ndarray = None
+        self._Wortho: Optional[np.ndarray] = None
         # covariate weights
-        self._w: np.ndarray = None
+        self._w: Optional[np.ndarray] = None
 
         # predictive scores
-        self._T: np.ndarray = None
-        self._P: np.ndarray = None
-        self._C: np.ndarray = None
+        self._T: Optional[np.ndarray] = None
+        self._P: Optional[np.ndarray] = None
+        self._C: Optional[np.ndarray] = None
         # coefficients
-        self.coef: np.ndarray = None
+        self.coef: Optional[np.ndarray] = None
         # total number of components
-        self.npc: int = None
+        self.npc: Optional[int] = None
 
-    def fit(self, x, y, n_comp=None, dot=np.dot):
+    def fit(self, x, y, n_comp=None):
         """
         Fit PLS model.
 
@@ -87,21 +87,21 @@ class OPLS:
         T, P, C = np.empty((n, npc)), np.empty((p, npc)), np.empty(npc)
 
         # X-y variations
-        tw = dot(y, x) / dot(y, y)
+        tw = np.dot(y, x) / np.dot(y, y)
         tw /= la.norm(tw)
         # predictive scores
-        tp = dot(x, tw)
+        tp = np.dot(x, tw)
         # components
         w, u, _, t = nipals(x, y)
-        p = dot(t, x) / dot(t, t)
+        p = np.dot(t, x) / np.dot(t, t)
         for nc in range(npc):
             # orthoganol weights
-            w_ortho = p - (dot(tw, p) * tw)
+            w_ortho = p - (np.dot(tw, p) * tw)
             w_ortho /= la.norm(w_ortho)
             # orthogonal scores
-            t_ortho = dot(x, w_ortho)
+            t_ortho = np.dot(x, w_ortho)
             # orthogonal loadings
-            p_ortho = dot(t_ortho, x) / dot(t_ortho, t_ortho)
+            p_ortho = np.dot(t_ortho, x) / np.dot(t_ortho, t_ortho)
             # update X to the residue matrix
             x -= t_ortho[:, np.newaxis] * p_ortho
             # save to matrix
@@ -109,13 +109,13 @@ class OPLS:
             Portho[:, nc] = p_ortho
             Wortho[:, nc] = w_ortho
             # predictive scores
-            tp -= t_ortho * dot(p_ortho, tw)
+            tp -= t_ortho * np.dot(p_ortho, tw)
             T[:, nc] = tp
-            C[nc] = dot(y, tp) / dot(tp, tp)
+            C[nc] = np.dot(y, tp) / np.dot(tp, tp)
 
             # next component
             w, u, _, t = nipals(x, y)
-            p = dot(t, x) / dot(t, t)
+            p = np.dot(t, x) / np.dot(t, t)
             P[:, nc] = p
 
         self._Tortho = Tortho

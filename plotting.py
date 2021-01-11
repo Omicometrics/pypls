@@ -4,6 +4,7 @@ Plot the results after cross validation.
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
+from typing import Optional
 
 
 class Plots:
@@ -19,8 +20,10 @@ class Plots:
     def __init__(self, cvmodel):
         self._model = cvmodel
 
-    def plot_scores(self, save_plot: bool = False,
-                    file_name: str = None) -> None:
+    def plot_scores(self,
+                    save_plot=False,
+                    file_name=None,
+                    return_scores=False) -> Optional[None]:
         """
         Plot scores. If OPLS/OPLS-DA is specified, the score plot for
         OPLS/OPLS-DA is used, i.e., the first component of orthogonal
@@ -41,6 +44,10 @@ class Plots:
             the dot is not supported by Matplotlib, an error will be
             raised. Thus if the extension is not intended to be
             specified, dot shouldn't be present in file_name.
+        return_scores: bool
+            Whether first and second component scores (in PLS-DA)
+            or orthogonal and predictive scores (in OPLS-DA) are
+            returned.
 
         Returns
         -------
@@ -78,10 +85,13 @@ class Plots:
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
 
+        # return scores or not
+        if return_scores:
+            return tp1, tp2
+
         plt.show()
 
-    def splot(self, save_plot: bool = False,
-              file_name: bool = None) -> None:
+    def splot(self, save_plot=False, file_name=None) -> None:
         """
         S-plot
 
@@ -137,9 +147,8 @@ class Plots:
 
         plt.show()
 
-    def jackknife_loading_plot(self, alpha: float = 0.05,
-                               save_plot: bool = False,
-                               file_name: str = None) -> tuple:
+    def jackknife_loading_plot(self, alpha=0.05, save_plot=False,
+                               file_name=None) -> tuple:
         """
         Loading plot with Jack-knife intervals.
 
@@ -206,8 +215,7 @@ class Plots:
 
         return loading_mean, loading_intervals
 
-    def plot_cv_errors(self, save_plot: bool = False,
-                       file_name: str = None) -> None:
+    def plot_cv_errors(self, save_plot=False, file_name=None) -> None:
         """ Plot cross validation classification errors.
 
         Returns

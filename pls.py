@@ -1,16 +1,21 @@
 import numpy as np
 import numpy.linalg as la
 
+from typing import Optional
+
 from base import nipals
 
 
 class PLS:
     """ Partial least squares. """
     def __init__(self):
-        pass
+        self._T: Optional[np.ndarry] = None
+        self._P: Optional[np.ndarry] = None
+        self._W: Optional[np.ndarry] = None
+        self._C: Optional[np.ndarry] = None
+        self.coef: Optional[np.ndarry] = None
 
-    def fit(self, x: np.ndarray, y: np.ndarray,
-            n_comp: int = None, dot=np.dot) -> None:
+    def fit(self, x, y, n_comp=None) -> None:
         """
         Fit PLS model
 
@@ -31,7 +36,7 @@ class PLS:
 
         """
         n, r = x.shape
-        # preallocation
+        # pre-allocation
         T = np.empty((n, n_comp))
         P = np.empty((r, n_comp))
         W = np.empty((r, n_comp))
@@ -40,7 +45,7 @@ class PLS:
         for nc in range(n_comp):
             w, u, c, t = nipals(x, y)
             # loadings
-            p = dot(t, x) / dot(t, t)
+            p = np.dot(t, x) / np.dot(t, t)
             # update data matrix for next component
             x -= t[:, np.newaxis] * p
             y -= t * c
@@ -60,9 +65,9 @@ class PLS:
         # noinspection SpellCheckingInspection
         coefs = np.empty((n_comp, r))
         for nc in range(n_comp):
-            coefs[nc] = dot(
-                dot(W[:, :nc], la.inv(dot(P[:, :nc].T, W[:, :nc]))), C[:nc]
-            )
+            coefs[nc] = np.dot(np.dot(
+                W[:, :nc], la.inv(np.dot(P[:, :nc].T, W[:, :nc]))
+            ), C[:nc])
         self.coef = coefs
 
     def predict(self, X, n_component=None):
