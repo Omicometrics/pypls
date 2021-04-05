@@ -81,15 +81,16 @@ class Plots:
 
         # save plot
         if save_plot:
-            if "." not in file_name:
+            if not file_name.endswith(".png"):
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
         # return scores or not
         if return_scores:
             return tp1, tp2
-
-        plt.show()
 
     def splot(self, save_plot=False, file_name=None) -> None:
         """
@@ -141,11 +142,12 @@ class Plots:
 
         # save plot
         if save_plot:
-            if "." not in file_name:
+            if not file_name.endswith(".png"):
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
-
-        plt.show()
+            plt.close()
+        else:
+            plt.show()
 
     def jackknife_loading_plot(self, alpha=0.05, save_plot=False,
                                file_name=None) -> tuple:
@@ -207,11 +209,12 @@ class Plots:
 
         # save the plot
         if save_plot:
-            if "." not in file_name:
+            if not file_name.endswith(".png"):
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
-
-        plt.show()
+            plt.close()
+        else:
+            plt.show()
 
         return loading_mean, loading_intervals
 
@@ -232,8 +235,9 @@ class Plots:
         plt.tight_layout()
 
         if save_plot:
-            if "." not in file_name:
+            if not file_name.endswith(".png"):
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
-
-        plt.show()
+            plt.close()
+        else:
+            plt.show()
