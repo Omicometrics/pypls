@@ -127,7 +127,7 @@ can save each plot to `some_string.png` with `dpi=1200`.
     cv.reset_optimal_num_component(n)
     ```
 
-####Permutation Test
+#### Permutation Test
 To evaluate the significance of the constructed model, permutation test
 is commonly used, which generates large number of random models to justify
 the significance of the PLS/OPLS-DA model.
