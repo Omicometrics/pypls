@@ -63,6 +63,7 @@ class CrossValidation:
         self._x: typing.Optional[np.ndarray] = None
         self.y: typing.Optional[np.ndarray] = None
         self.groups: typing.Optional[dict] = None
+        self._used_variable_index: typing.Optional[np.ndarray] = None
 
     def fit(self, x, y):
         """
@@ -99,6 +100,11 @@ class CrossValidation:
         for train_index, test_index in self._split(y):
             xtr, xte = x[train_index], x[test_index]
             ytr, yte = y[train_index], y[test_index]
+
+            # check the data matrix to remove variables having only 1 unique
+            # value.
+            val_ix, xtr = self._check_x(xtr)
+            xte = xte[:, val_ix]
 
             # scale matrix
             xtr_scale = self.scaler.fit(xtr)
@@ -467,6 +473,49 @@ class CrossValidation:
         """
         return self._mis_classifications
 
+    @property
+    def used_variable_index(self):
+        """
+
+        Returns
+        -------
+        np.ndarray:
+            Indices of variables used for model construction
+
+        """
+        return self._used_variable_index
+
+    @staticmethod
+    def _check_x(x) -> typing.Tuple[np.ndarray, np.ndarray]:
+        """
+        Checks the valid variables to remove those with unique value.
+
+        Parameters
+        ----------
+        x: np.ndarray
+            Data matrix
+
+        Returns
+        -------
+        index: np.ndarray
+            Indices of valid variables
+        x: np.ndarray
+            Valid data matrix
+
+        """
+        # check nan and inf
+        has_nan = np.isnan(x).any(axis=0)
+        has_inf = np.isinf(x).any(axis=0)
+        idx, = np.where(~(has_nan | has_inf))
+        # check unique value
+        is_unique_value = np.absolute(
+            x[:, idx] - x[:, idx].mean(axis=0)
+        ).sum(axis=0) == 0
+        # index of valid variables
+        idx = idx[~is_unique_value]
+
+        return idx, x[:, idx]
+
     def _split(self, y) -> typing.Iterable:
         """
         Split total number of n samples into training and testing data.
@@ -493,7 +542,7 @@ class CrossValidation:
         # leave one out cross validation
         if n == k:
             for i in indices:
-                yield np.delete(indices, i), i
+                yield np.delete(indices, i), [i]
 
         # k fold cross validation
         else:
@@ -512,6 +561,8 @@ class CrossValidation:
         """
         Create final model based on the optimal number of components.
         """
+        val_ix, x = self._check_x(x)
+
         # scale data matrix
         y_scale = self.scaler.fit(y)
         x_scale = self.scaler.fit(x)
@@ -524,6 +575,9 @@ class CrossValidation:
 
         # summary the fitting
         self._summary_fit(x_scale, y_scale)
+
+        # indices of variables used for model construction
+        self._used_variable_index = val_ix
 
     def _summary_fit(self, x, y) -> None:
         """
