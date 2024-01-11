@@ -112,9 +112,9 @@ self-prediction results, _i.e._, models are constructed using the input dateset 
 parameters and predict same set of data. **_Therefore, the metric should be higher than that obtained
 from cross validation_**, but should be consistent with that practiced during permutation test. _p_
 value is then calculated as  
-    _p_ = (No. of permutation error rate <= normal error rate) / n  
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation error rate <= normal error rate) / n  
 if misclassification rate (_i.e._, parameter `error`) is used as the metric, or  
-    _p_ = (No. of permutation Q2 >= normal Q2) / n  
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation Q2 >= normal Q2) / n  
 if Q2 (_i.e._, parameter `q2`) is used.
     
    > **NOTE**  
