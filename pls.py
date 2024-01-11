@@ -70,13 +70,13 @@ class PLS:
             ), C[:nc])
         self.coef = coefs
 
-    def predict(self, X, n_component=None):
+    def predict(self, x, n_component=None) -> np.ndarray:
         """ Do prediction. """
         npc = self.coef.shape[1] - 1
         if n_component is not None and n_component < npc:
             npc = n_component - 1
         coef = self.coef[npc]
-        return np.dot(X, coef)
+        return np.dot(x, coef)
 
     @property
     def scores_x(self):

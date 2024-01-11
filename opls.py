@@ -3,7 +3,7 @@ Orthogonal Projection on Latent Structure (O-PLS)
 """
 import numpy as np
 from numpy import linalg as la
-from typing import Optional
+from typing import Optional, Tuple
 from base import nipals
 
 
@@ -132,12 +132,13 @@ class OPLS:
 
         self.npc = npc
 
-    def predict(self, X, n_component=None, return_scores=False):
+    def predict(self, x, n_component=None, return_scores=False)\
+            -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
         """
         Predict the new coming data matrix.
         Parameters
         ----------
-        X: np.ndarray
+        x: np.ndarray
             Variable matrix with size n samples by p variables.
         n_component: int | None
             Number of components.
@@ -155,9 +156,9 @@ class OPLS:
             n_component = self.npc
         coef = self.coef[n_component - 1]
 
-        y = np.dot(X, coef)
+        y = np.dot(x, coef)
         if return_scores:
-            return y, np.dot(X, self._w)
+            return y, np.dot(x, self._w)
 
         return y
 

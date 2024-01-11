@@ -3,13 +3,14 @@ Plot the results after cross validation.
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpl_patches
 from scipy import stats
 from typing import Optional
 
 
 class Plots:
     """
-    Plot cross validation results
+    Plots cross validation results
 
     Parameters
     ----------
@@ -25,7 +26,7 @@ class Plots:
                     file_name=None,
                     return_scores=False) -> Optional[None]:
         """
-        Plot scores. If OPLS/OPLS-DA is specified, the score plot for
+        Plots scores. If OPLS/OPLS-DA is specified, the score plot for
         OPLS/OPLS-DA is used, i.e., the first component of orthogonal
         versus predictive scores are used for the plot, otherwise, the
         first two components of score plots are used.
@@ -219,7 +220,8 @@ class Plots:
         return loading_mean, loading_intervals
 
     def plot_cv_errors(self, save_plot=False, file_name=None) -> None:
-        """ Plot cross validation classification errors.
+        """
+        Plots cross validation classification errors.
 
         Returns
         -------
@@ -234,6 +236,95 @@ class Plots:
         _ = plt.xlim(left=0)
         plt.tight_layout()
 
+        if save_plot:
+            if not file_name.endswith(".png"):
+                file_name += ".png"
+            plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
+
+    def plot_permutation_test(self, save_plot=False, file_name=None) -> None:
+        """
+        Plots metrics obtained from permutation test.
+
+        Parameters
+        ----------
+        save_plot: bool
+            Whether the plot should be saved. Default is False.
+        file_name: str | None
+            The name of the file to be saved.
+
+        Returns
+        -------
+
+        """
+        if self._model.perm_vals is None:
+            raise ValueError("Permutation test has not been performed.")
+
+        metric_val = self._model.valid_metric_perm
+        metric_name = "Q2" if self._model.metric_name == "q2" else "Error Rate"
+        do_kde = self._model.metric_name == "q2"
+        if do_kde:
+            x0 = float(int(self._model.perm_vals.min() * 10 - 1.)) / 10.
+            x1 = float(int(self._model.perm_vals.max() * 10 + 1.)) / 10.
+            xx = np.linspace(x0, x1, 100)
+            # fit the permutation distribution
+            kde = stats.gaussian_kde(self._model.perm_vals)
+            dist = kde.pdf(xx)
+            p = ((np.count_nonzero(self._model.perm_vals >= metric_val) + 1)
+                 / (self._model.perm_vals.size + 1))
+        else:
+            p = ((np.count_nonzero(self._model.perm_vals <= metric_val) + 1)
+                 / (self._model.perm_vals.size + 1))
+
+        fig, axs = plt.subplots(ncols=2, figsize=(12, 4))
+        ax = axs[0]
+        _ = ax.plot(self._model.corr_y_perms, self._model.perm_vals,
+                    marker="o", ls="none", ms=6, mec="steelblue",
+                    mfc="skyblue", alpha=0.6,
+                    label=f"Permutation {metric_name}")
+        _ = ax.plot([1.], [metric_val], marker="^", ls="none", ms=8,
+                    mec="firebrick", mfc="lightcoral", mew=1.5,
+                    label=f"Cross-validated {metric_name}")
+        ax.grid(visible=True, c="silver", ls="--", alpha=0.4)
+        ax.set_xlabel("Correlation permuted Y to original Y", fontsize=16)
+        ax.set_ylabel(metric_name, fontsize=16)
+        ax.legend(loc=9, ncols=2, bbox_to_anchor=(0.5, 1.12),
+                  handletextpad=0.2)
+
+        ax = axs[1]
+        _ = ax.hist(self._model.perm_vals, 100, ec="steelblue", fc="skyblue",
+                    alpha=0.6, density=True)
+        _ = ax.plot([metric_val], [0.02], marker="^",
+                    ms=8, zorder=10, mec="firebrick", mfc="lightcoral",
+                    mew=1.5, clip_on=False)
+        if do_kde:
+            _ = ax.plot(xx, dist, "darkorange", lw=1.5)
+
+        y0, y1 = ax.get_ylim()
+        ax.plot([metric_val, metric_val], [y0, y1],
+                "--", c="lightcoral", lw=0.8, alpha=0.6)
+        ax.set_ylim((y0, y1))
+        
+        ax.set_xlabel(metric_name, fontsize=16)
+        ax.set_ylabel("Density", fontsize=16)
+        ax.set_title(f"Permutation {metric_name} Distribution", fontsize=16)
+
+        pstr = "%.2e" % p if p < 0.01 else "%.4f" % p
+        mstr = (f"{round(metric_val, 2)}"
+                if abs(metric_val) >= 0.01 else '%.2e' % metric_val)
+        labels = [f"{metric_name} = {mstr}", f"$p = ${pstr}"]
+        h = mpl_patches.Rectangle((0, 0), 1, 1, fc="white", ec="white",
+                                  lw=0, alpha=0)
+        ax.legend([h, h], labels, loc='best',
+                  prop={'family': "Times New Roman", 'size': 12},
+                  fancybox=True, framealpha=0.6, edgecolor="darkred",
+                  facecolor="snow", handlelength=0, handletextpad=0)
+
+        plt.tight_layout()
+
+        # save the plot
         if save_plot:
             if not file_name.endswith(".png"):
                 file_name += ".png"
