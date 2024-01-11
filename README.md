@@ -84,9 +84,8 @@ mis-classification error. Defaults to `q2`.
     plots.plot_scores()
     ```
    > [!NOTE]  
-   > For OPLS-DA, predictive scores `tp` vs the first orthogonal
-    scores `to` will be shown; for PLS, the first and second component will
-    be shown.
+   > For OPLS-DA, predictive scores `tp` vs the first orthogonal scores `to`
+will be shown; for PLS, the first and second component will be shown.
     * S-plot (only suitable for OPLS-DA).
     ```
     plots.splot()
@@ -180,7 +179,7 @@ Chemometr*. 2002, 16, 119-128.
 [4] Wiklund S, *et al*. Visualization of GC/TOF-MS-Based Metabolomics
 Data for Identification of Biochemically Interesting Compounds Using
 OPLS Class Models. *Anal Chem*. 2008, 80, 115-122.
-[Link](https://pubs.acs.org/doi/abs/10.1021/ac0713510)
+[Link](https://pubs.acs.org/doi/abs/10.1021/ac0713510)  
 [5] Bijlsma S, *et al*. Large-Scale Human Metabolomics Studies: A Strategy for
 Data (Pre-) Processing and Validation. *Anal Chem*. 2006, 78, 2, 567–574.
 [Link](https://pubs.acs.org/doi/10.1021/ac051495j)  
