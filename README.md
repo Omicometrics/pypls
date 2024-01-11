@@ -83,7 +83,7 @@ mis-classification error. Defaults to `q2`.
     ```
     plots.plot_scores()
     ```
-   > [!NOTE]  
+   > **NOTE**  
    > For OPLS-DA, predictive scores `tp` vs the first orthogonal scores `to`
 will be shown; for PLS, the first and second component will be shown.
     * S-plot (only suitable for OPLS-DA).
@@ -104,19 +104,22 @@ will be shown; for PLS, the first and second component will be shown.
    Two subplots will be generated to show the permutation test results:  
     - [x] _Correlation of permuted y to original y_ vs _Model metric_.
     - [x] **Distribution of permutation model metric** which is used to calculate _p_ value. 
-   > [!IMPORTANT]  
+   > **IMPORTANT**  
    > It should be noted that, the metric value shown in the plot can be different with that obtained
 from cross validation, _e.g._, Q2. This is because in permutation test, all metrics are obtained from
 self-prediction results, _i.e._, models are constructed using the input dateset and cross validation
 parameters and predict same set of data. **_Therefore, the metric should be higher than that obtained
 from cross validation_**, but should be consistent with that practiced during permutation test. _p_
 value is then calculated as  
-$$ x = {-b \pm \sqrt{b^2-4ac} \over 2a} $$
+    _p_ = (No. of permutation error rate <= normal error rate) / n  
+if misclassification rate (_i.e._, parameter `error`) is used as the metric, or  
+    _p_ = (No. of permutation Q2 >= normal Q2) / n  
+if Q2 (_i.e._, parameter `q2`) is used.
     
-   > [!NOTE]  
+   > **NOTE**  
    > For all these plots, set `save_plot=True` and `file_name=some_string.png`
 can save each plot to `some_string.png` with `dpi=1200`.
-5. Model assessment
+5. Model assessment.
     ```
     # R2X
     cv.R2X_cum
@@ -129,12 +132,12 @@ can save each plot to `some_string.png` with `dpi=1200`.
     ```
    To check the `R2X` and `R2y` of the optimal component, _i.e._,
 `cv.optimal_component_num`, call `cv.R2X` and `cv.R2y`.
-6. Access other metrics
+6. Access other metrics.
     * Cross validated predictive scores: `cv.scores`
     * Cross validated predictive loadings: `cv.loadings_cv`
     * Optimal number of components determined by cross
     validation: `cv.optimal_component_num`
-7. Prediction of new data
+7. Prediction of new data.
     ```
     predicted_scores = cv.predict(X, return_scores=False)
     ```
@@ -151,7 +154,7 @@ can save each plot to `some_string.png` with `dpi=1200`.
     print([cv.groups[g] for g in predicted_groups])
     ```
     Set `return_scores=True` will return predictive scores for OPLS.
-8. Other methods  
+8. Other methods.  
     `cv` provides a method `reset_optimal_num_component` to reset
     the optimal number of components manually, instead of defaultedly
     at the minimal number of mis-classification.
