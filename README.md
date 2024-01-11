@@ -103,7 +103,8 @@ will be shown; for PLS, the first and second component will be shown.
    ```
    Two subplots will be generated to show the permutation test results:  
     - [x] _Correlation of permuted y to original y_ vs _Model metric_.
-    - [x] **Distribution of permutation model metric** which is used to calculate _p_ value. 
+    - [x] **Distribution of permutation model metric** which is used to calculate _p_ value.    
+
    > **IMPORTANT**  
    > It should be noted that, the metric value shown in the plot can be different with that obtained
 from cross validation, _e.g._, Q2. This is because in permutation test, all metrics are obtained from
