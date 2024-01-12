@@ -34,8 +34,7 @@ import cross_validation
 # import plotting functions
 import plotting
 ``` 
-1. Initialize cross validation object for 10-fold cross validation using
-OPLS-DA.
+* ##### Initialize cross validation object for 10-fold cross validation using OPLS-DA.
     ```
     cv = cross_validation.CrossValidation(kfold=10, estimator="opls")
     ```
@@ -49,7 +48,7 @@ OPLS-DA.
      * `minmax`: min-max scaling so that the range for each variable is
      between 0 and 1.  
      * `mean`: zero mean scaling.
-2. Fit the model.
+* ##### Fit the model.
    ```
    cv.fit(X, labels)
    ```
@@ -57,7 +56,7 @@ OPLS-DA.
    `n` is number of samples and `p` is number of variables.
    `labels` can be numeric values or strings, with number of
    elements equals to `n`.
-3. Permutation test <sup>[5, 6]</sup>    
+* ##### Permutation test <sup>[5, 6]</sup>    
     To identify whether the constructed model is overfitting, permutation
 test is generally applied, by repeatedly simply randomizing labels and performing
 the model construction and prediction on the randomized labels many times. This
@@ -67,58 +66,60 @@ package adopts same strategy, which uses
     ```
     Parameters:  
     `num_perms`: Number of permutations. Defaults to `10000`.  
-    `metric`: Metric used to assess the performance of the constructed model. Valid
-values are `q2` and `error`, where `q2` calculates Q2 and `error` calculates the
-mis-classification error. Defaults to `q2`.
-4. Visualization of results.
+    To get _p_ value, the significance of the constructed model, run
+    ```
+   cv.p(metric="q2")
+   ```
+   Parameters:  
+   `"q2"`: Q2.  
+   `"error"`: Mis-classification error rate.
+   > **IMPORTANT**  
+   > _p_ value is calculated as <sup>[7]</sup>  
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation error rate <= normal error rate + 1) / (n + 1)  
+if misclassification rate (_i.e._, parameter `error`) is used as the metric, or  
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation Q2 >= normal Q2 + 1) / (n + 1)  
+if Q2 (_i.e._, parameter `q2`) is used, and `n` is the number of permutations.
+* ##### Visualization of results.
     ```
     # construct the plotting object
     plots = plotting.Plots(cv)
     ```
-    * Number of mis-classifications at different principal components:
+  * Number of mis-classifications at different principal components:
     ```
     plots.plot_cv_errors()
     ```
-    * Cross validated score plot:
+  * Cross validated score plot:
     ```
     plots.plot_scores()
     ```
-   > **NOTE**  
-   > For OPLS-DA, predictive scores `tp` vs the first orthogonal scores `to`
+    > **NOTE**  
+    For OPLS-DA, predictive scores `tp` vs the first orthogonal scores `to`
 will be shown; for PLS, the first and second component will be shown.
-    * S-plot (only suitable for OPLS-DA).
+  * S-plot (only suitable for OPLS-DA).
     ```
     plots.splot()
     ```
-    * Loading profile with Jack-knife confidence intervals (only suitable for OPLS-DA).
+  * Loading profile with Jack-knife confidence intervals (only suitable for OPLS-DA).
     ```
     means, intervals = plots.jackknife_loading_plot(alpha=0.05)
     ```
     Where `alpha` is significance level, default is `0.05`.
     `means` are mean loadings, and `intervals` are
     Jack-knife confidence intervals.  
-    * Permutation plot
+  * Permutation test plot
     ```
-   plots.plot_permutation_test()
-   ```
-   Two subplots will be generated to show the permutation test results:  
-    - [x] _Correlation of permuted y to original y_ vs _Model metric_.
-    - [x] **Distribution of permutation model metric** which is used to calculate _p_ value.    
+    plots.plot_permutation_test(metric="q2")
+    ```
+    Parameters:
+    * `"q2"`: Q2.
+    * `"error"`: Mis-classification error rate.  
 
-   > **IMPORTANT**  
-   > It should be noted that, the metric value shown in the plot can be different with that obtained
-from cross validation, _e.g._, Q2. This is because in permutation test, all metrics are obtained from
-self-prediction results, _i.e._, models are constructed using the input dateset and cross validation
-parameters and predict same set of data. **_Therefore, the metric should be higher than that obtained
-from cross validation_**, but should be consistent with that practiced during permutation test. _p_
-value is then calculated as  
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation error rate <= normal error rate) / n  
-if misclassification rate (_i.e._, parameter `error`) is used as the metric, or  
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation Q2 >= normal Q2) / n  
-if Q2 (_i.e._, parameter `q2`) is used.
+    Two subplots will be generated to show the permutation test results:  
+    - [x] _Correlation of permuted y to original y_ vs _Model metric_.
+    - [x] **Distribution of permutation model metric** which is used to calculate _p_ value.
     
    > **NOTE**  
-   > For all these plots, set `save_plot=True` and `file_name=some_string.png`
+   > For all above plots, set `save_plot=True` and `file_name=some_string.png`
 can save each plot to `some_string.png` with `dpi=1200`.
 5. Model assessment.
     ```
@@ -189,4 +190,6 @@ Data (Pre-) Processing and Validation. *Anal Chem*. 2006, 78, 2, 567–574.
 [Link](https://pubs.acs.org/doi/10.1021/ac051495j)  
 [6] Ojala M, *et al*. Permutation Tests for Studying Classifier Performance.
 *J Mach Learn Res*. 2010, 11, 1833−1863.
-[Link](https://www.jmlr.org/papers/v11/ojala10a.html)
+[Link](https://www.jmlr.org/papers/v11/ojala10a.html)  
+[7] North BV, *et al*. A Note on the Calculation of Empirical P Values from
+Monte Carlo Procedures. *Am J Hum Genet.* 2002, 71(2), 439–441. [Link](https://www.jmlr.org/papers/v11/ojala10a.html)

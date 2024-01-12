@@ -40,15 +40,13 @@ class CrossValidation:
     def __init__(self, estimator="opls", kfold=10, scaler="pareto"):
         # number of folds
         self.kfold = kfold
+        self._scaler_param: str = scaler
+        self._estimator_param: str = estimator
         # estimator
-        if estimator == "pls":
-            self.estimator = PLS()
-        elif estimator == "opls":
-            self.estimator = OPLS()
+        f_estimator, f_scaler = self._create_scaler_estimator()
+        self.estimator = f_estimator
+        self.scaler = f_scaler
         self.estimator_id = estimator
-        # scaler
-        self.scaler = pretreatment.Scaler(scaler=scaler)
-
         # initialize other attributes, but should be HIDDEN
         self._ypred: typing.Optional[np.ndarray] = None
         self._Tortho: typing.Optional[np.ndarray] = None
@@ -68,10 +66,9 @@ class CrossValidation:
         self._used_variable_index: typing.Optional[np.ndarray] = None
         self._r2x_cum: typing.Optional[float] = None
         self._r2y_cum: typing.Optional[float] = None
-        self.perm_vals: typing.Optional[np.ndarray] = None
-        self.corr_y_perms: typing.Optional[np.ndarray] = None
-        self.valid_metric_perm: typing.Optional[float] = None
-        self.metric_name: typing.Optional[str] = None
+        self._corr_y_perms: typing.Optional[np.ndarray] = None
+        self._perm_q2: typing.Optional[np.ndarray] = None
+        self._perm_err: typing.Optional[np.ndarray] = None
 
     def fit(self, x, y):
         """
@@ -134,7 +131,7 @@ class CrossValidation:
             for k in range(1, npc+1):
                 # if OPLS is used, the test matrix should be corrected to
                 # remove orthogonal components
-                if self.estimator_id == "opls":
+                if self._estimator_param == "opls":
                     xte_corr, tcorr = self.estimator.correct(
                         xte_scale, n_component=k, return_scores=True
                     )
@@ -183,7 +180,7 @@ class CrossValidation:
         self.y = y
 
         # opls specific metrics
-        if self.estimator_id == "opls":
+        if self._estimator_param == "opls":
             self._Tortho = tortho[:, :npc0]
             self._Tpred = tpred[:, :npc0]
             self._ssx = ssx
@@ -219,15 +216,15 @@ class CrossValidation:
         #       data and the input data matrix.
         npc = self._opt_component + 1
         # scale the matrix
-        x = self.scaler.scale(x)
-        if self.estimator_id == "opls":
+        x = self.scaler.scale(x[:, self._used_variable_index])
+        if self._estimator_param == "opls":
             x = self.estimator.correct(x.copy(), n_component=npc)
             return self.estimator.predict(
                 x, n_component=npc, return_scores=return_scores
             )
         return self.estimator.predict(x, n_component=npc)
 
-    def permutation_test(self, num_perms=10000, metric="q2") -> None:
+    def permutation_test(self, num_perms=10000) -> None:
         """
         Performs permutation test on constructed model.
 
@@ -235,11 +232,6 @@ class CrossValidation:
         ----------
         num_perms: int
             Number of permutations. Defaults to 10000.
-        metric: str
-            Metric used to estimate the significance of the model.
-            `q2`: Q2.
-            `error`: Fraction of labels mis-classified.
-            Defaults to `q2`.
 
         Returns
         -------
@@ -249,62 +241,68 @@ class CrossValidation:
         # check the arguments
         if not isinstance(num_perms, int):
             raise ValueError("Expected integer, got {}.".format(num_perms))
-        if num_perms < 1000:
-            raise ValueError("Expected large positive integer >= 1000, "
+        if num_perms < 200:
+            raise ValueError("Expected large positive integer >= 200, "
                              "got {}.".format(num_perms))
-        if not isinstance(metric, str):
-            raise ValueError("Expected string, got "
-                             "{} for argument `metric`.".format(type(metric)))
-        if metric not in ("q2", "error"):
-            raise ValueError("Expected `q2`, `error`, got {}.".format(metric))
 
-        self.metric_name = metric
+        is_opls = self._estimator_param == "opls"
+
+        estimator, scaler = self._create_scaler_estimator()
 
         # do permutation test
-        _, x = self._check_x(self._x)
-        # scale data matrix
-        x_scale = self.scaler.fit(x)
-        y_scale = self.scaler.fit(self.y)
+        x = self._x[:, self._used_variable_index]
         # center y
-        y_center = y_scale - y_scale.mean()
+        y_center = self.y - self.y.mean()
         ssy_c = (y_center ** 2).sum()
-        ssy: float = (y_scale ** 2).sum()
         # optimal component number
         npc: int = self._opt_component + 1
         n: int = self.y.size
+        pred_y: np.ndarray = np.zeros(n, dtype=np.float64)
 
         rnd_generator = np.random.default_rng()
 
-        perm_metrics: np.ndarray = np.zeros(num_perms, dtype=np.float64)
+        perm_q2: np.ndarray = np.zeros(num_perms, dtype=np.float64)
+        perm_err: np.ndarray = np.zeros(num_perms, dtype=np.float64)
         perm_corr: np.ndarray = np.zeros(num_perms, dtype=np.float64)
         for i in tqdm.tqdm(range(num_perms), total=num_perms,
                            desc="Calculating permuted metrics"):
             # randomize labels
             ix = rnd_generator.permutation(n)
-            rnd_y = y_scale[ix]
-            # fit the model
-            self.estimator.fit(x_scale.copy(), rnd_y, n_comp=npc)
-            # predict
-            yp = self.estimator.predict(x_scale)
-            if metric == "error":
-                pred_cls = (yp > 0.).astype(int)
-                perm_metrics[i] = ((pred_cls - self.y[ix]) != 0).sum() / n
-            elif metric == "q2":
-                perm_metrics[i] = 1. - ((yp - rnd_y) ** 2).sum() / ssy
+            rnd_y = self.y[ix]
+            ssy: float = 0.
+            ssey: float = 0.
+            # fit the model using cross validation
+            for train_index, test_index in self._split(rnd_y):
+                xtr, xte = x[train_index], x[test_index]
+                ytr, yte = rnd_y[train_index], rnd_y[test_index]
+
+                # scale matrix
+                xtr_scale = scaler.fit(xtr)
+                xte_scale = scaler.scale(xte)
+                ytr_scale = scaler.fit(ytr)
+                yte_scale = scaler.scale(yte)
+
+                # variances
+                ssy += (yte_scale ** 2).sum()
+                # fitting the model
+                estimator.fit(xtr_scale.copy(), ytr_scale, n_comp=npc)
+                # prediction
+                if is_opls:
+                    xc = estimator.correct(xte_scale.copy(), n_component=npc)
+                    yp = estimator.predict(xc, n_component=npc)
+                else:
+                    yp = estimator.predict(xte_scale)
+                pred_y[test_index] = yp
+                ssey += ((yp - yte_scale) ** 2).sum()
+
+            pred_cls = (pred_y > 0.).astype(int)
+            perm_err[i] = np.count_nonzero((pred_cls - rnd_y) != 0) / n
+            perm_q2[i] = 1. - ssey / ssy
             perm_corr[i] = abs(((y_center * y_center[ix]).sum()) / ssy_c)
 
-        # re-build the model
-        self.estimator.fit(x_scale.copy(), y_scale.copy(), n_comp=npc)
-        # predict
-        yp = self.estimator.predict(x_scale)
-        if metric == "error":
-            pred_cls = (yp > 0.).astype(int)
-            self.valid_metric_perm = ((pred_cls - self.y) != 0).sum() / n
-        elif metric == "q2":
-            self.valid_metric_perm = 1. - ((yp - y_scale) ** 2).sum() / ssy
-
-        self.perm_vals = perm_metrics
-        self.corr_y_perms = perm_corr
+        self._perm_q2 = perm_q2
+        self._perm_err = perm_err
+        self._corr_y_perms = perm_corr
 
     def reset_optimal_num_component(self, k) -> None:
         """
@@ -347,7 +345,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self.estimator_id != "opls":
+        if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._Tortho[:, self._opt_component]
 
@@ -367,7 +365,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self.estimator_id != "opls":
+        if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._Tpred[:, self._opt_component]
 
@@ -382,7 +380,7 @@ class CrossValidation:
             otherwise is the scores of X
 
         """
-        if self.estimator_id == "opls":
+        if self._estimator_param == "opls":
             return self.predictive_score
         else:
             return self.estimator.scores_x
@@ -425,7 +423,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self.estimator_id != "opls":
+        if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._r2xcorr[self._opt_component]
 
@@ -443,7 +441,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self.estimator_id != "opls":
+        if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._r2xyo[self._opt_component]
 
@@ -520,7 +518,7 @@ class CrossValidation:
         2008, 80, 115-122.
 
         """
-        if self.estimator_id != "opls":
+        if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._corr
 
@@ -547,7 +545,7 @@ class CrossValidation:
         2008, 80, 115-122.
 
         """
-        if self.estimator_id != "opls":
+        if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._cov
 
@@ -567,7 +565,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self.estimator_id != "opls":
+        if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return np.array(self._pcv[self._opt_component+1])
 
@@ -607,6 +605,82 @@ class CrossValidation:
 
         """
         return self._used_variable_index
+
+    @property
+    def permutation_q2(self):
+        """
+
+        Returns
+        -------
+        np.ndarray:
+            Q2 array generated by permutation test.
+
+        """
+        if self._perm_q2 is None:
+            raise ValueError("Permutation test has not been performed.")
+        return self._perm_q2
+
+    @property
+    def permutation_error(self):
+        """
+
+        Returns
+        -------
+        np.ndarray:
+            Misclassification error rates generated by permutation test.
+
+        """
+        if self._perm_err is None:
+            raise ValueError("Permutation test has not been performed.")
+        return self._perm_err
+
+    @property
+    def correlation_permute_y(self):
+        """
+
+        Returns
+        -------
+        np.ndarray:
+            Correlation between permuted y and normal y.
+
+        """
+        if self._corr_y_perms is None:
+            raise ValueError("Permutation test has not been performed.")
+        return self._corr_y_perms
+
+    def p(self, metric="q2"):
+        """
+        Calculates the significance of the constructed model by
+        permutation test.
+
+        Parameters
+        ----------
+        metric: str
+            Metric used to assess the performance of the constructed
+            model. "q2" and "error" are accepted as values.
+            "q2": Q2
+            "error": Misclassification error rate.
+
+        Returns
+        -------
+        float
+            p value
+
+        """
+        if self._perm_err is None:
+            raise ValueError("Permutation test has not been performed.")
+        if metric not in ("q2", "error"):
+            raise ValueError("Expected `q2`, `error`, got {}.".format(metric))
+
+        if metric == "q2":
+            nb: int = np.count_nonzero(self._perm_q2 >= self.q2) + 1
+            nt: float = self._perm_q2.size + 1.
+        else:
+            err: float = self.min_nmc / self.y.size
+            nb: int = np.count_nonzero(self._perm_err <= err) + 1
+            nt: float = self._perm_err.size + 1.
+
+        return nb / nt
 
     @staticmethod
     def _check_x(x) -> typing.Tuple[np.ndarray, np.ndarray]:
@@ -724,7 +798,7 @@ class CrossValidation:
         r2y_pc: np.ndarray = np.zeros(npc, dtype=np.float64)
         ssx: float = (x ** 2).sum()
         ssy: float = (y ** 2).sum()
-        if self.estimator_id == "opls":
+        if self._estimator_param == "opls":
             tp = self.estimator.predictive_score(npc)
             ss_tp = np.dot(tp, tp)
             # loadings
@@ -787,7 +861,7 @@ class CrossValidation:
         # Q2
         self._q2 = 1. - self._pressy.sum(axis=0) / self._ssy
         # metrics for OPLS
-        if self.estimator_id == "opls":
+        if self._estimator_param == "opls":
             _, npc = _pred_class.shape
             # r2xcorr, r2xyo
             r2xcorr, r2xyo = [], []
@@ -836,3 +910,16 @@ class CrossValidation:
 
         self.groups = groups
         return y_reset
+
+    def _create_scaler_estimator(self):
+        """
+        Creates scaler and estimator.
+
+        Returns
+        -------
+
+        """
+        if self._estimator_param == "pls":
+            return PLS(), pretreatment.Scaler(scaler=self._scaler_param)
+        if self._estimator_param == "opls":
+            return OPLS(), pretreatment.Scaler(scaler=self._scaler_param)

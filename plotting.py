@@ -244,12 +244,19 @@ class Plots:
         else:
             plt.show()
 
-    def plot_permutation_test(self, save_plot=False, file_name=None) -> None:
+    def plot_permutation_test(self, metric="q2",
+                              save_plot=False,
+                              file_name=None) -> None:
         """
         Plots metrics obtained from permutation test.
 
         Parameters
         ----------
+        metric: str
+            Metric used to assess the performance of the constructed model.
+            "q2" and "error" are accepted as values.
+            "q2": Q2
+            "error": Misclassification error rate.
         save_plot: bool
             Whether the plot should be saved. Default is False.
         file_name: str | None
@@ -259,32 +266,38 @@ class Plots:
         -------
 
         """
-        if self._model.perm_vals is None:
-            raise ValueError("Permutation test has not been performed.")
+        if metric not in ("q2", "error"):
+            raise ValueError("Expected `q2`, `error`, got {}.".format(metric))
 
-        metric_val = self._model.valid_metric_perm
-        metric_name = "Q2" if self._model.metric_name == "q2" else "Error Rate"
-        do_kde = self._model.metric_name == "q2"
+        do_kde: bool = False
+        if metric == "q2":
+            metric_name = "Q2"
+            mval = self._model.q2
+            perm_vals = self._model.permutation_q2
+            do_kde = True
+        else:
+            metric_name = "Error Rate"
+            mval = self._model.min_nmc / self._model.y.size
+            perm_vals = self._model.permutation_error
+
         if do_kde:
-            x0 = float(int(self._model.perm_vals.min() * 10 - 1.)) / 10.
-            x1 = float(int(self._model.perm_vals.max() * 10 + 1.)) / 10.
+            x0 = float(int(perm_vals.min() * 10 - 1.)) / 10.
+            x1 = float(int(perm_vals.max() * 10 + 1.)) / 10.
             xx = np.linspace(x0, x1, 100)
             # fit the permutation distribution
-            kde = stats.gaussian_kde(self._model.perm_vals)
+            kde = stats.gaussian_kde(perm_vals)
             dist = kde.pdf(xx)
-            p = ((np.count_nonzero(self._model.perm_vals >= metric_val) + 1)
-                 / (self._model.perm_vals.size + 1))
+            n_better = np.count_nonzero(perm_vals >= mval) + 1
         else:
-            p = ((np.count_nonzero(self._model.perm_vals <= metric_val) + 1)
-                 / (self._model.perm_vals.size + 1))
+            n_better = np.count_nonzero(perm_vals <= mval) + 1
+        p = n_better / (perm_vals.size + 1)
 
         fig, axs = plt.subplots(ncols=2, figsize=(12, 4))
         ax = axs[0]
-        _ = ax.plot(self._model.corr_y_perms, self._model.perm_vals,
-                    marker="o", ls="none", ms=6, mec="steelblue",
-                    mfc="skyblue", alpha=0.6,
-                    label=f"Permutation {metric_name}")
-        _ = ax.plot([1.], [metric_val], marker="^", ls="none", ms=8,
+        _ = ax.plot(self._model.correlation_permute_y, perm_vals, marker="o",
+                    ls="none", ms=6, mec="steelblue", mfc="skyblue",
+                    alpha=0.6, label=f"Permutation {metric_name}")
+        _ = ax.plot([1.], [mval], marker="^", ls="none", ms=8,
                     mec="firebrick", mfc="lightcoral", mew=1.5,
                     label=f"Cross-validated {metric_name}")
         ax.grid(visible=True, c="silver", ls="--", alpha=0.4)
@@ -294,17 +307,16 @@ class Plots:
                   handletextpad=0.2)
 
         ax = axs[1]
-        _ = ax.hist(self._model.perm_vals, 100, ec="steelblue", fc="skyblue",
+        _ = ax.hist(perm_vals, 100, ec="steelblue", fc="skyblue",
                     alpha=0.6, density=True)
-        _ = ax.plot([metric_val], [0.02], marker="^",
-                    ms=8, zorder=10, mec="firebrick", mfc="lightcoral",
-                    mew=1.5, clip_on=False)
+        _ = ax.plot([mval], [0.02], marker="^", ms=8, zorder=10,
+                    mec="firebrick", mfc="lightcoral", mew=1.5, clip_on=False)
         if do_kde:
             _ = ax.plot(xx, dist, "darkorange", lw=1.5)
 
         y0, y1 = ax.get_ylim()
-        ax.plot([metric_val, metric_val], [y0, y1],
-                "--", c="lightcoral", lw=0.8, alpha=0.6)
+        ax.plot([mval, mval], [y0, y1], "--",
+                c="lightcoral", lw=0.8, alpha=0.6)
         ax.set_ylim((y0, y1))
         
         ax.set_xlabel(metric_name, fontsize=16)
@@ -312,8 +324,7 @@ class Plots:
         ax.set_title(f"Permutation {metric_name} Distribution", fontsize=16)
 
         pstr = "%.2e" % p if p < 0.01 else "%.4f" % p
-        mstr = (f"{round(metric_val, 2)}"
-                if abs(metric_val) >= 0.01 else '%.2e' % metric_val)
+        mstr = f"{round(mval, 2)}" if abs(mval) >= 0.01 else '%.2e' % mval
         labels = [f"{metric_name} = {mstr}", f"$p = ${pstr}"]
         h = mpl_patches.Rectangle((0, 0), 1, 1, fc="white", ec="white",
                                   lw=0, alpha=0)
