@@ -3,12 +3,14 @@ Plot the results after cross validation.
 """
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpl_patches
 from scipy import stats
+from typing import Optional
 
 
 class Plots:
     """
-    Plot cross validation results
+    Plots cross validation results
 
     Parameters
     ----------
@@ -19,10 +21,12 @@ class Plots:
     def __init__(self, cvmodel):
         self._model = cvmodel
 
-    def plot_scores(self, save_plot: bool = False,
-                    file_name: str = None) -> None:
+    def plot_scores(self,
+                    save_plot=False,
+                    file_name=None,
+                    return_scores=False) -> Optional[None]:
         """
-        Plot scores. If OPLS/OPLS-DA is specified, the score plot for
+        Plots scores. If OPLS/OPLS-DA is specified, the score plot for
         OPLS/OPLS-DA is used, i.e., the first component of orthogonal
         versus predictive scores are used for the plot, otherwise, the
         first two components of score plots are used.
@@ -41,6 +45,10 @@ class Plots:
             the dot is not supported by Matplotlib, an error will be
             raised. Thus if the extension is not intended to be
             specified, dot shouldn't be present in file_name.
+        return_scores: bool
+            Whether first and second component scores (in PLS-DA)
+            or orthogonal and predictive scores (in OPLS-DA) are
+            returned.
 
         Returns
         -------
@@ -74,14 +82,18 @@ class Plots:
 
         # save plot
         if save_plot:
-            if "." not in file_name:
+            if not file_name.endswith(".png"):
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
-        plt.show()
+        # return scores or not
+        if return_scores:
+            return tp1, tp2
 
-    def splot(self, save_plot: bool = False,
-              file_name: bool = None) -> None:
+    def splot(self, save_plot=False, file_name=None) -> None:
         """
         S-plot
 
@@ -131,15 +143,15 @@ class Plots:
 
         # save plot
         if save_plot:
-            if "." not in file_name:
+            if not file_name.endswith(".png"):
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
-        plt.show()
-
-    def jackknife_loading_plot(self, alpha: float = 0.05,
-                               save_plot: bool = False,
-                               file_name: str = None) -> tuple:
+    def jackknife_loading_plot(self, alpha=0.05, save_plot=False,
+                               file_name=None) -> tuple:
         """
         Loading plot with Jack-knife intervals.
 
@@ -198,17 +210,18 @@ class Plots:
 
         # save the plot
         if save_plot:
-            if "." not in file_name:
+            if not file_name.endswith(".png"):
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
-
-        plt.show()
+            plt.close()
+        else:
+            plt.show()
 
         return loading_mean, loading_intervals
 
-    def plot_cv_errors(self, save_plot: bool = False,
-                       file_name: str = None) -> None:
-        """ Plot cross validation classification errors.
+    def plot_cv_errors(self, save_plot=False, file_name=None) -> None:
+        """
+        Plots cross validation classification errors.
 
         Returns
         -------
@@ -224,8 +237,109 @@ class Plots:
         plt.tight_layout()
 
         if save_plot:
-            if "." not in file_name:
+            if not file_name.endswith(".png"):
                 file_name += ".png"
             plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
 
-        plt.show()
+    def plot_permutation_test(self, metric="q2",
+                              save_plot=False,
+                              file_name=None) -> None:
+        """
+        Plots metrics obtained from permutation test.
+
+        Parameters
+        ----------
+        metric: str
+            Metric used to assess the performance of the constructed model.
+            "q2" and "error" are accepted as values.
+            "q2": Q2
+            "error": Misclassification error rate.
+        save_plot: bool
+            Whether the plot should be saved. Default is False.
+        file_name: str | None
+            The name of the file to be saved.
+
+        Returns
+        -------
+
+        """
+        if metric not in ("q2", "error"):
+            raise ValueError("Expected `q2`, `error`, got {}.".format(metric))
+
+        do_kde: bool = False
+        if metric == "q2":
+            metric_name = "Q2"
+            mval = self._model.q2
+            perm_vals = self._model.permutation_q2
+            do_kde = True
+        else:
+            metric_name = "Error Rate"
+            mval = self._model.min_nmc / self._model.y.size
+            perm_vals = self._model.permutation_error
+
+        if do_kde:
+            x0 = float(int(perm_vals.min() * 10 - 1.)) / 10.
+            x1 = float(int(perm_vals.max() * 10 + 1.)) / 10.
+            xx = np.linspace(x0, x1, 100)
+            # fit the permutation distribution
+            kde = stats.gaussian_kde(perm_vals)
+            dist = kde.pdf(xx)
+            n_better = np.count_nonzero(perm_vals >= mval) + 1
+        else:
+            n_better = np.count_nonzero(perm_vals <= mval) + 1
+        p = n_better / (perm_vals.size + 1)
+
+        fig, axs = plt.subplots(ncols=2, figsize=(12, 4))
+        ax = axs[0]
+        _ = ax.plot(self._model.correlation_permute_y, perm_vals, marker="o",
+                    ls="none", ms=6, mec="steelblue", mfc="skyblue",
+                    alpha=0.6, label=f"Permutation {metric_name}")
+        _ = ax.plot([1.], [mval], marker="^", ls="none", ms=8,
+                    mec="firebrick", mfc="lightcoral", mew=1.5,
+                    label=f"Cross-validated {metric_name}")
+        ax.grid(visible=True, c="silver", ls="--", alpha=0.4)
+        ax.set_xlabel("Correlation permuted Y to original Y", fontsize=16)
+        ax.set_ylabel(metric_name, fontsize=16)
+        ax.legend(loc=9, ncols=2, bbox_to_anchor=(0.5, 1.12),
+                  handletextpad=0.2)
+
+        ax = axs[1]
+        _ = ax.hist(perm_vals, 100, ec="steelblue", fc="skyblue",
+                    alpha=0.6, density=True)
+        _ = ax.plot([mval], [0.02], marker="^", ms=8, zorder=10,
+                    mec="firebrick", mfc="lightcoral", mew=1.5, clip_on=False)
+        if do_kde:
+            _ = ax.plot(xx, dist, "darkorange", lw=1.5)
+
+        y0, y1 = ax.get_ylim()
+        ax.plot([mval, mval], [y0, y1], "--",
+                c="lightcoral", lw=0.8, alpha=0.6)
+        ax.set_ylim((y0, y1))
+        
+        ax.set_xlabel(metric_name, fontsize=16)
+        ax.set_ylabel("Density", fontsize=16)
+        ax.set_title(f"Permutation {metric_name} Distribution", fontsize=16)
+
+        pstr = "%.2e" % p if p < 0.01 else "%.4f" % p
+        mstr = f"{round(mval, 2)}" if abs(mval) >= 0.01 else '%.2e' % mval
+        labels = [f"{metric_name} = {mstr}", f"$p = ${pstr}"]
+        h = mpl_patches.Rectangle((0, 0), 1, 1, fc="white", ec="white",
+                                  lw=0, alpha=0)
+        ax.legend([h, h], labels, loc='best',
+                  prop={'family': "Times New Roman", 'size': 12},
+                  fancybox=True, framealpha=0.6, edgecolor="darkred",
+                  facecolor="snow", handlelength=0, handletextpad=0)
+
+        plt.tight_layout()
+
+        # save the plot
+        if save_plot:
+            if not file_name.endswith(".png"):
+                file_name += ".png"
+            plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()

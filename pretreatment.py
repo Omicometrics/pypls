@@ -2,14 +2,22 @@
 Preprocess data matrix.
 """
 import numpy as np
+from typing import Optional
 
 
 class Scaler:
     """
     A scaler to scale data matrix
+
+    Parameters
+    ----------
+    scaler: str
+        Method for scaling, "uv" for unit variance, "pareto" for
+        pareto scaling, "mean" for mean scaling and "minmax" for
+        minmax scaling. Default is "pareto".
     """
 
-    def __init__(self, scaler: str = "pareto"):
+    def __init__(self, scaler="pareto"):
         if scaler == "uv":
             self.scaler = self._autoscaling
         elif scaler == "pareto":
@@ -19,8 +27,8 @@ class Scaler:
         elif scaler == "minmax":
             self.scaler = self._minmaxscaling
 
-        self._center: np.ndarray = None
-        self._normalizer: np.ndarray = None
+        self._center: Optional[np.ndarray] = None
+        self._normalizer: Optional[np.ndarray] = None
 
     def fit(self, x: np.ndarray) -> np.ndarray:
         """
@@ -33,49 +41,91 @@ class Scaler:
         self._normalizer = normalizer
         return xscale
 
-    def scale(self, x: np.ndarray) -> np.ndarray:
+    def scale(self, x) -> np.ndarray:
         """
-        Scale the x based on the parameters obtained in fit
-        :param x: variable matrix with size n samples by p variables
-        :return: scaled x
+        Scale the x based on the parameters obtained in fit.
+
+        Parameters
+        ----------
+        x: np.ndarray
+            Variable matrix with size n samples by p variables.
+
+        Returns
+        -------
+            np.ndarray
+            scaled x
         """
         x = x - self._center
         return x if self._normalizer is None else x / self._normalizer
 
-    def _autoscaling(self, x: np.ndarray) -> tuple:
+    @staticmethod
+    def _autoscaling(x) -> tuple:
         """
-        Mean center and unit variance scaling
-        :param x: variable matrix with size n samples and p variables
-        :return: scaled x
+        Mean center and unit variance scaling.
+
+        Parameters
+        ----------
+        x: np.ndarray
+            Variable matrix with size n samples and p variables.
+
+        Returns
+        -------
+            np.ndarray
+            scaled x
         """
         center = x.mean(axis=0)
         normalizer = x.std(axis=0)
         return center, normalizer, (x - center) / normalizer
 
-    def _paretoscaling(self, x: np.ndarray) -> tuple:
+    @staticmethod
+    def _paretoscaling(x) -> tuple:
         """
         Pareto scaling
-        :param x: variable matrix with size n samples and p variables
-        :return: scaled x
+
+        Parameters
+        ----------
+        x: np.ndarray
+            Variable matrix with size n samples and p variables.
+
+        Returns
+        -------
+            np.ndarray
+            scaled x
         """
         center = x.mean(axis=0)
         normalizer = np.sqrt(x.std(axis=0))
         return center, normalizer, (x - center) / normalizer
 
-    def _meancentering(x: np.ndarray) -> tuple:
+    def _meancentering(x) -> tuple:
         """
         Mean center
-        :param x: variable matrix with size n samples and p variables
-        :return: scaled x
+
+        Parameters
+        ----------
+        x: np.ndarray
+            Variable matrix with size n samples and p variables.
+
+        Returns
+        -------
+            np.ndarray
+            scaled x
         """
         center = x.mean(axis=0)
         return center, None, x - center
 
-    def _minmaxscaling(x: np.ndarray) -> tuple:
+    def _minmaxscaling(x) -> tuple:
         """
-        Min-max scaling to scale each variable into range 0 and 1
-        :param x: variable matrix with size n samples and p variables
-        :return: scaled x
+        Min-max scaling to scale each variable into range 0 and 1.
+
+        Parameters
+        ----------
+        x: np.ndarray
+            Variable matrix with size n samples and p variables
+
+        Returns
+        -------
+            np.ndarray
+            scaled x
         """
         center = x.min(axis=0)
         normalizer = x.max(axis=0) - x.min(axis=0)

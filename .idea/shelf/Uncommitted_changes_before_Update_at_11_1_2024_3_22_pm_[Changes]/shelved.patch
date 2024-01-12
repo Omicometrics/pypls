@@ -1,0 +1,157 @@
+Index: readme.md
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+># pypls\r\nThis package implements PLS-DA and OPLS-DA for analysis of\r\nhigh-dimensional data derived from, for example, mass spectrometry\r\nin metabolomics. The visualization of score plots, S-plot, jack-knife\r\nconfidence intervals for loading profile, and mis-classification number\r\nin cross validation are also implemented.\r\n## Prerequisites\r\nThis package is created by ```Python 3.7```, with the following packages\r\nrequired:\r\n```\r\nnumpy 1.17.2\r\nscipy 1.3.1\r\nmatplotlib 3.1.3\r\ntqdm 4.64.0\r\n```\r\nAll of these or newer version packages can be installed by using ``pip``.\r\n## Important\r\nThis package is only workable for binary classifications. Thus, if three or\r\nmore classes are in the data, this package can't handle that. An alternative\r\nway is pair-wise classifications. As *Prof. Richard G. Brereton*\r\npointed out in his paper<sup>[1]</sup>, binary classification is recommended for PLS\r\nrelated methods, and multi-class classification problems are not suitable\r\nfor PLS. \r\n## Install\r\nThe latest release can be downloaded\r\n[**here**](https://github.com/DongElkan/pypls/releases).\r\nUncompress the package and set `Python` working directory there.\r\nSince current version is not packaged, all modules must be run\r\nunder the working directory.\r\n## Running the codes\r\n```\r\n# import cross validation module\r\nimport cross_validation\r\n# import plotting functions\r\nimport plotting\r\n``` \r\n1. Initialize cross validation object for 10-fold cross validation using\r\nOPLS-DA.\r\n    ```\r\n    cv = cross_validation.CrossValidation(kfold=10, estimator=\"opls\")\r\n    ```\r\n    Parameters:  \r\n    `kfold`: Fold in cross validation. For leave-one-out cross validation,\r\n    set it to `n`, is the number of samples.  \r\n    `estimator`: The classifier, valid values are `opls` and `pls`. Defaults to `opls`.  \r\n    `scaler`: scaling of variable matrix.    \r\n     * `uv`: zero mean and unit variance scaling.  \r\n     * `pareto`: Pareto scaling. *This is the default.*  \r\n     * `minmax`: min-max scaling so that the range for each variable is\r\n     between 0 and 1.  \r\n     * `mean`: zero mean scaling.\r\n2. Fit the model.\r\n   ```\r\n   cv.fit(X, labels)\r\n   ```\r\n   `X` is the variable matrix with size `n` (rows) by `p` (columns), where\r\n   `n` is number of samples and `p` is number of variables.\r\n   `labels` can be numeric values or strings, with number of\r\n   elements equals to `n`.\r\n3. Permutation test <sup>[5, 6]</sup>    \r\n    To identify whether the constructed model is overfitting, permutation\r\ntest is generally applied, by repeatedly simply randomizing labels and performing\r\nthe model construction and prediction on the randomized labels many times. This\r\npackage adopts same strategy, which uses\r\n    ```\r\n    cv.permutation_test()\r\n    ```\r\n    Parameters:  \r\n    `num_perms`: Number of permutations. Defaults to `10000`.  \r\n    `metric`: Metric used to assess the performance of the constructed model. Valid\r\nvalues are `q2` and `error`, where `q2` calculates Q2 and `error` calculates the\r\nmis-classification error. Defaults to `q2`.\r\n4. Visualization of results.\r\n    ```\r\n    # construct the plotting object\r\n    plots = plotting.Plots(cv)\r\n    ```\r\n    * Number of mis-classifications at different principal components:\r\n    ```\r\n    plots.plot_cv_errors()\r\n    ```\r\n    * Cross validated score plot:\r\n    ```\r\n    plots.plot_scores()\r\n    ```\r\n   > [!NOTE]  \r\n   > For OPLS-DA, predictive scores `tp` vs the first orthogonal\r\n    scores `to` will be shown; for PLS, the first and second component will\r\n    be shown.\r\n    * S-plot (only suitable for OPLS-DA).\r\n    ```\r\n    plots.splot()\r\n    ```\r\n    * Loading profile with Jack-knife confidence intervals (only suitable for OPLS-DA).\r\n    ```\r\n    means, intervals = plots.jackknife_loading_plot(alpha=0.05)\r\n    ```\r\n    Where `alpha` is significance level, default is `0.05`.\r\n    `means` are mean loadings, and `intervals` are\r\n    Jack-knife confidence intervals.  \r\n    * Permutation plot\r\n    ```\r\n   plots.plot_permutation_test()\r\n   ```\r\n   Two subplots will be generated to show the permutation test results:  \r\n    - [x] _Correlation of permuted y to original y_ vs _Model metric_.\r\n    - [x] **Distribution of permutation model metric** which is used to calculate _p_ value. \r\n   > [!IMPORTANT]  \r\n   > It should be noted that, the metric value shown in the plot can be different with that obtained\r\nfrom cross validation, _e.g._, Q2. This is because in permutation test, all metrics are obtained from\r\nself-prediction results, _i.e._, models are constructed using the input dateset and cross validation\r\nparameters and predict same set of data. **_Therefore, the metric should be higher than that obtained\r\nfrom cross validation_**, but should be consistent with that practiced during permutation test. _p_\r\nvalue is then calculated as  \r\n$$ x = {-b \\pm \\sqrt{b^2-4ac} \\over 2a} $$\r\n    \r\n   > [!NOTE]  \r\n   > For all these plots, set `save_plot=True` and `file_name=some_string.png`\r\ncan save each plot to `some_string.png` with `dpi=1200`.\r\n5. Model assessment\r\n    ```\r\n    # R2X\r\n    cv.R2X_cum\r\n    # Q2\r\n    cv.q2\r\n    # R2y\r\n    cv.R2y_cum\r\n    # Number of mis-classifications\r\n    cv.min_nmc\r\n    ```\r\n   To check the `R2X` and `R2y` of the optimal component, _i.e._,\r\n`cv.optimal_component_num`, call `cv.R2X` and `cv.R2y`.\r\n6. Access other metrics\r\n    * Cross validated predictive scores: `cv.scores`\r\n    * Cross validated predictive loadings: `cv.loadings_cv`\r\n    * Optimal number of components determined by cross\r\n    validation: `cv.optimal_component_num`\r\n7. Prediction of new data\r\n    ```\r\n    predicted_scores = cv.predict(X, return_scores=False)\r\n    ```\r\n    To predict the class, use\r\n    ```\r\n    predicted_groups = (predicted_scores >= 0).astype(int)\r\n    ```\r\n    This will output values of `0` and `1` to indicate the\r\n    groups of samples submitted for prediction. `cv` object\r\n    has the attribute `groups` storing the group names which\r\n    were assigned in `labels` input for training. To access the\r\n    group names after prediction, use\r\n    ```\r\n    print([cv.groups[g] for g in predicted_groups])\r\n    ```\r\n    Set `return_scores=True` will return predictive scores for OPLS.\r\n8. Other methods  \r\n    `cv` provides a method `reset_optimal_num_component` to reset\r\n    the optimal number of components manually, instead of defaultedly\r\n    at the minimal number of mis-classification.\r\n    ```\r\n    cv.reset_optimal_num_component(n)\r\n    ```\r\n\r\n## Author\r\nNai-ping Dong\r\nEmail: naiping.dong@hotmail.com\r\n\r\n## License\r\nThis project is licensed under the Apache 2.0 License - see the [LICENSE](https://github.com/DongElkan/pypls/blob/master/LICENSE) for details.\r\n\r\n## References\r\n[1] Brereton RG, Lloyd GR. Partial least squares discriminant analysis:\r\ntaking the magic away. *J Chemometr*. 2014, 18, 213-225.\r\n[Link](https://onlinelibrary.wiley.com/doi/abs/10.1002/cem.2609)  \r\n[2] Trygg J, Wold S. Projection on Latent Structure (O-PLS). *J\r\nChemometr*. 2002, 16, 119-128.\r\n[Link](https://onlinelibrary.wiley.com/doi/abs/10.1002/cem.695)   \r\n[3] Trygg J, Wold S. O2-PLS, a two-block (X-Y) latent variable regression\r\n(LVR) method with a integral OSC filter. *J Chemometr*. 2003, 17, 53-64.\r\n[Link](https://onlinelibrary.wiley.com/doi/abs/10.1002/cem.775)  \r\n[4] Wiklund S, *et al*. Visualization of GC/TOF-MS-Based Metabolomics\r\nData for Identification of Biochemically Interesting Compounds Using\r\nOPLS Class Models. *Anal Chem*. 2008, 80, 115-122.\r\n[Link](https://pubs.acs.org/doi/abs/10.1021/ac0713510)\r\n[5] Bijlsma S, *et al*. Large-Scale Human Metabolomics Studies: A Strategy for\r\nData (Pre-) Processing and Validation. *Anal Chem*. 2006, 78, 2, 567–574.\r\n[Link](https://pubs.acs.org/doi/10.1021/ac051495j)  \r\n[6] Ojala M, *et al*. Permutation Tests for Studying Classifier Performance.\r\n*J Mach Learn Res*. 2010, 11, 1833−1863.\r\n[Link](https://www.jmlr.org/papers/v11/ojala10a.html)
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/readme.md b/readme.md
+--- a/readme.md	(revision aadfe75f07f7d2732c558938806f6f70c1ec40ed)
++++ b/readme.md	(date 1704957735238)
+@@ -180,10 +180,10 @@
+ [4] Wiklund S, *et al*. Visualization of GC/TOF-MS-Based Metabolomics
+ Data for Identification of Biochemically Interesting Compounds Using
+ OPLS Class Models. *Anal Chem*. 2008, 80, 115-122.
+-[Link](https://pubs.acs.org/doi/abs/10.1021/ac0713510)
++[Link](https://pubs.acs.org/doi/abs/10.1021/ac0713510)  
+ [5] Bijlsma S, *et al*. Large-Scale Human Metabolomics Studies: A Strategy for
+ Data (Pre-) Processing and Validation. *Anal Chem*. 2006, 78, 2, 567–574.
+ [Link](https://pubs.acs.org/doi/10.1021/ac051495j)  
+ [6] Ojala M, *et al*. Permutation Tests for Studying Classifier Performance.
+ *J Mach Learn Res*. 2010, 11, 1833−1863.
+-[Link](https://www.jmlr.org/papers/v11/ojala10a.html)
+\ No newline at end of file
++[Link](https://www.jmlr.org/papers/v11/ojala10a.html)
+Index: .idea/inspectionProfiles/Project_Default.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/inspectionProfiles/Project_Default.xml b/.idea/inspectionProfiles/Project_Default.xml
+new file mode 100644
+--- /dev/null	(date 1704871486061)
++++ b/.idea/inspectionProfiles/Project_Default.xml	(date 1704871486061)
+@@ -0,0 +1,10 @@
++<component name="InspectionProjectProfileManager">
++  <profile version="1.0">
++    <option name="myName" value="Project Default" />
++    <inspection_tool class="DuplicatedCode" enabled="true" level="WEAK WARNING" enabled_by_default="true">
++      <Languages>
++        <language minSize="98" name="Python" />
++      </Languages>
++    </inspection_tool>
++  </profile>
++</component>
+\ No newline at end of file
+Index: .idea/pypls.iml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/pypls.iml b/.idea/pypls.iml
+new file mode 100644
+--- /dev/null	(date 1704871486210)
++++ b/.idea/pypls.iml	(date 1704871486210)
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<module type="PYTHON_MODULE" version="4">
++  <component name="NewModuleRootManager">
++    <content url="file://$MODULE_DIR$" />
++    <orderEntry type="jdk" jdkName="Python 3.10" jdkType="Python SDK" />
++    <orderEntry type="sourceFolder" forTests="false" />
++  </component>
++  <component name="PyDocumentationSettings">
++    <option name="format" value="NUMPY" />
++    <option name="myDocStringFormat" value="NumPy" />
++  </component>
++</module>
+\ No newline at end of file
+Index: .idea/modules.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/modules.xml b/.idea/modules.xml
+new file mode 100644
+--- /dev/null	(date 1704871486239)
++++ b/.idea/modules.xml	(date 1704871486239)
+@@ -0,0 +1,8 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="ProjectModuleManager">
++    <modules>
++      <module fileurl="file://$PROJECT_DIR$/.idea/pypls.iml" filepath="$PROJECT_DIR$/.idea/pypls.iml" />
++    </modules>
++  </component>
++</project>
+\ No newline at end of file
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/misc.xml b/.idea/misc.xml
+new file mode 100644
+--- /dev/null	(date 1704877973865)
++++ b/.idea/misc.xml	(date 1704877973865)
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="Black">
++    <option name="sdkName" value="Python 3.10" />
++  </component>
++  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10" project-jdk-type="Python SDK" />
++</project>
+\ No newline at end of file
+Index: .idea/inspectionProfiles/profiles_settings.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/inspectionProfiles/profiles_settings.xml b/.idea/inspectionProfiles/profiles_settings.xml
+new file mode 100644
+--- /dev/null	(date 1704871486314)
++++ b/.idea/inspectionProfiles/profiles_settings.xml	(date 1704871486314)
+@@ -0,0 +1,6 @@
++<component name="InspectionProjectProfileManager">
++  <settings>
++    <option name="USE_PROJECT_PROFILE" value="false" />
++    <version value="1.0" />
++  </settings>
++</component>
+\ No newline at end of file
+Index: .idea/vcs.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/vcs.xml b/.idea/vcs.xml
+new file mode 100644
+--- /dev/null	(date 1704871486342)
++++ b/.idea/vcs.xml	(date 1704871486342)
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project version="4">
++  <component name="VcsDirectoryMappings">
++    <mapping directory="" vcs="Git" />
++  </component>
++</project>
+\ No newline at end of file
+Index: .idea/.gitignore
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/.idea/.gitignore b/.idea/.gitignore
+new file mode 100644
+--- /dev/null	(date 1704871486569)
++++ b/.idea/.gitignore	(date 1704871486569)
+@@ -0,0 +1,8 @@
++# Default ignored files
++/shelf/
++/workspace.xml
++# Editor-based HTTP Client requests
++/httpRequests/
++# Datasource local storage ignored files
++/dataSources/
++/dataSources.local.xml
