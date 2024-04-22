@@ -241,8 +241,8 @@ class CrossValidation:
         # check the arguments
         if not isinstance(num_perms, int):
             raise ValueError("Expected integer, got {}.".format(num_perms))
-        if num_perms < 200:
-            raise ValueError("Expected large positive integer >= 200, "
+        if num_perms < 20:
+            raise ValueError("Expected large positive integer >= 20, "
                              "got {}.".format(num_perms))
 
         is_opls = self._estimator_param == "opls"
