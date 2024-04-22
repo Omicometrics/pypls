@@ -244,11 +244,10 @@ class Plots:
         else:
             plt.show()
 
-    def plot_permutation_test(self, metric="q2",
-                              save_plot=False,
-                              file_name=None) -> None:
+    def permutation_plot(self, metric="q2", save_plot=False,
+                         file_name=None) -> None:
         """
-        Plots metrics obtained from permutation test.
+        Creates permutation plot.
 
         Parameters
         ----------
@@ -257,6 +256,85 @@ class Plots:
             "q2" and "error" are accepted as values.
             "q2": Q2
             "error": Misclassification error rate.
+        save_plot: bool
+            Whether the plot should be saved. Default is False.
+        file_name: str / None
+            The name of the file to be saved.
+
+        Returns
+        -------
+
+        """
+        if metric not in ("q2", "error"):
+            raise ValueError("Expected `q2`, `error`, got {}.".format(metric))
+
+        if metric == "q2":
+            metric_name = "Q2"
+            mval = self._model.q2
+            perm_vals = self._model.permutation_q2
+        else:
+            metric_name = "Error Rate"
+            mval = self._model.min_nmc / self._model.y.size
+            perm_vals = self._model.permutation_error
+
+        # perform the linear regression line
+        x = self._model.correlation_permute_y
+        nperm = perm_vals.size
+        tx = x.sum() + 1.
+        ty = perm_vals.sum() + mval
+        a = (((x * perm_vals).sum() + mval - (tx * ty) / (nperm + 1.))
+             / ((x ** 2).sum() + 1. - tx ** 2 / (nperm + 1.)))
+        b = (ty - a * tx) / (nperm + 1.)
+
+        fig, ax = plt.subplots(figsize=(6, 4))
+        lx = np.linspace(0., 1., num=100)
+        ly = lx * a + b
+        _ = ax.plot(lx, ly, marker="none", ls="--", lw=1., color="k")
+        _ = ax.plot(x, perm_vals, marker="o", ls="none", ms=6,
+                    mec="mediumblue", mfc="skyblue", alpha=0.6,
+                    label=f"Permutation {metric_name}", zorder=10.)
+        _ = ax.plot([1.], [mval], marker="^", ls="none", ms=8,
+                    mec="firebrick", mfc="lightcoral", mew=1.5,
+                    label=f"Cross-validated {metric_name}", zorder=10.)
+        ymin, ymax = ax.get_ylim()
+        _ = ax.plot([0., 0.], [ymin, ymax], ls="-", lw=1., color="lightgrey")
+        ax.set_ylim(top=ymax, bottom=ymin)
+        xmin, xmax = ax.get_xlim()
+        _ = ax.plot([xmin, xmax], [0., 0.], ls="-", lw=1., color="lightgrey")
+        ax.set_xlim(left=xmin, right=xmax)
+        ax.grid(visible=True, c="silver", ls="--", alpha=0.4)
+        ax.set_xlabel("Correlation permuted Y to original Y", fontsize=16)
+        ax.set_ylabel(metric_name, fontsize=16)
+        ax.legend(loc=9, ncols=2, bbox_to_anchor=(0.5, 1.12),
+                  handletextpad=0.2)
+        plt.tight_layout()
+
+        # save the plot
+        if save_plot:
+            if not file_name.endswith(".png"):
+                file_name += ".png"
+            plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
+
+    def plot_permutation_dist(self, metric="q2", do_kde: bool = True,
+                              save_plot=False,
+                              file_name=None) -> None:
+        """
+        Plots the distribution of metrics obtained from permutation test.
+
+        Parameters
+        ----------
+        metric: str
+            Metric used to assess the performance of the constructed model.
+            "q2" and "error" are accepted as values.
+            "q2": Q2
+            "error": Misclassification error rate.
+        do_kde: bool
+            Whether to perform kernel density estimation to fit the
+            distribution of permutation metrics. However, if the `error`
+            is used, the kernel density estimation will not be performed.
         save_plot: bool
             Whether the plot should be saved. Default is False.
         file_name: str | None
@@ -269,16 +347,17 @@ class Plots:
         if metric not in ("q2", "error"):
             raise ValueError("Expected `q2`, `error`, got {}.".format(metric))
 
-        do_kde: bool = False
         if metric == "q2":
             metric_name = "Q2"
             mval = self._model.q2
             perm_vals = self._model.permutation_q2
-            do_kde = True
+            n_better = np.count_nonzero(perm_vals >= mval) + 1
         else:
             metric_name = "Error Rate"
             mval = self._model.min_nmc / self._model.y.size
             perm_vals = self._model.permutation_error
+            n_better = np.count_nonzero(perm_vals <= mval) + 1
+            do_kde = False
 
         if do_kde:
             x0 = float(int(perm_vals.min() * 10 - 1.)) / 10.
@@ -287,26 +366,10 @@ class Plots:
             # fit the permutation distribution
             kde = stats.gaussian_kde(perm_vals)
             dist = kde.pdf(xx)
-            n_better = np.count_nonzero(perm_vals >= mval) + 1
-        else:
-            n_better = np.count_nonzero(perm_vals <= mval) + 1
+
         p = n_better / (perm_vals.size + 1)
 
-        fig, axs = plt.subplots(ncols=2, figsize=(12, 4))
-        ax = axs[0]
-        _ = ax.plot(self._model.correlation_permute_y, perm_vals, marker="o",
-                    ls="none", ms=6, mec="steelblue", mfc="skyblue",
-                    alpha=0.6, label=f"Permutation {metric_name}")
-        _ = ax.plot([1.], [mval], marker="^", ls="none", ms=8,
-                    mec="firebrick", mfc="lightcoral", mew=1.5,
-                    label=f"Cross-validated {metric_name}")
-        ax.grid(visible=True, c="silver", ls="--", alpha=0.4)
-        ax.set_xlabel("Correlation permuted Y to original Y", fontsize=16)
-        ax.set_ylabel(metric_name, fontsize=16)
-        ax.legend(loc=9, ncols=2, bbox_to_anchor=(0.5, 1.12),
-                  handletextpad=0.2)
-
-        ax = axs[1]
+        fig, ax = plt.subplots(figsize=(6, 4))
         _ = ax.hist(perm_vals, 100, ec="steelblue", fc="skyblue",
                     alpha=0.6, density=True)
         _ = ax.plot([mval], [0.02], marker="^", ms=8, zorder=10,
@@ -318,7 +381,7 @@ class Plots:
         ax.plot([mval, mval], [y0, y1], "--",
                 c="lightcoral", lw=0.8, alpha=0.6)
         ax.set_ylim((y0, y1))
-        
+
         ax.set_xlabel(metric_name, fontsize=16)
         ax.set_ylabel("Density", fontsize=16)
         ax.set_title(f"Permutation {metric_name} Distribution", fontsize=16)
