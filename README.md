@@ -127,7 +127,7 @@ will be shown; for PLS, the first and second component will be shown.
       values are:
       * `"q2"`: Q2.
       * `"error"`: Mis-classification error rate.
-    * "do_kde": Whether to fit the distribution using kernel density estimation (KDE).
+    * `do_kde`: Whether to fit the distribution using kernel density estimation (KDE).
     `True` for yes, `False` for not to fit the distribution. Note that, if `error`
     is used to show the distribution, KDE will not be used as the error rate is
     not continuous, thus the estimation will be inaccurate.
