@@ -5,7 +5,7 @@ in metabolomics. The visualization of score plots, S-plot, jack-knife
 confidence intervals for loading profile, and mis-classification number
 in cross validation are also implemented.
 ## Prerequisites
-This package is created by ```Python 3.7```, with the following packages
+This package is created by ```Python 3.7```, and recently tested by `Python 3.10`, with the following packages
 required:
 ```
 numpy 1.17.2
@@ -108,15 +108,29 @@ will be shown; for PLS, the first and second component will be shown.
     Jack-knife confidence intervals.  
   * Permutation test plot
     ```
-    plots.plot_permutation_test(metric="q2")
+    plots.permutation_test(metric="q2")
     ```
     Parameters:
-    * `"q2"`: Q2.
-    * `"error"`: Mis-classification error rate.  
-
-    Two subplots will be generated to show the permutation test results:  
-    - [x] _Correlation of permuted y to original y_ vs _Model metric_.
-    - [x] **Distribution of permutation model metric** which is used to calculate _p_ value.
+    * `metrics`: the metric used to show the permutation test results. Valid
+      values are:
+      * `"q2"`: Q2.
+      * `"error"`: Mis-classification error rate.
+    
+    This will generate permutation test plot, _Correlation of permuted y to 
+    original y_ vs _Model metric_, with a regression line.
+  * Distribution of the metrics obtained from permutation test
+    ```
+    plots.plot_permutation_dist(metric="q2")
+    ```
+    Parameters:
+    * `metrics`: the metric used to show the permutation test results. Valid
+      values are:
+      * `"q2"`: Q2.
+      * `"error"`: Mis-classification error rate.
+    * "do_kde": Whether to fit the distribution using kernel density estimation (KDE).
+    `True` for yes, `False` for not to fit the distribution. Note that, if `error`
+    is used to show the distribution, KDE will not be used as the error rate is
+    not continuous, thus the estimation will be inaccurate.
     
    > **NOTE**  
    > For all above plots, set `save_plot=True` and `file_name=some_string.png`
