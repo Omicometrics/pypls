@@ -4,11 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cb325dc-f80c-468f-a4bc-3ab688b37e46" name="Changes" comment="Update the permutation test, plots and document." />
+    <list default="true" id="2cb325dc-f80c-468f-a4bc-3ab688b37e46" name="Changes" comment="Update readme.">
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2024_3_22_pm__Changes_.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2024_3_22_pm__Changes_.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2024_7_41_pm__Changes_.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2024_7_41_pm__Changes_.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Rebase.Settings">
+    <option name="NEW_BASE" value="origin/master" />
   </component>
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
@@ -115,8 +122,8 @@
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
     <MESSAGE value="Add permutation test to assess the significance of the model specified by cross validation; add plots of permutation test results; update the readme accordingly; other fixes." />
     <MESSAGE value="Few modifications." />
-    <MESSAGE value="Update readme." />
     <MESSAGE value="Update the permutation test, plots and document." />
-    <option name="LAST_COMMIT_MESSAGE" value="Update the permutation test, plots and document." />
+    <MESSAGE value="Update readme." />
+    <option name="LAST_COMMIT_MESSAGE" value="Update readme." />
   </component>
 </project>
