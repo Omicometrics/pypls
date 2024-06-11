@@ -2,9 +2,8 @@
 Orthogonal Projection on Latent Structure (O-PLS)
 """
 import numpy as np
-from numpy import linalg as la
 from typing import Optional, Tuple
-from base import nipals
+from core import correct_fit, correct_x_1d, correct_x_2d
 
 
 class OPLS:
@@ -22,8 +21,16 @@ class OPLS:
         Orthogonal loadings.
     orthogonal_scores: np.ndarray
         Orthogonal scores.
+
+    Parameters
+    ----------
+    tol: float
+        The tolerance for convergence in NIPALS.
+    max_iter: int
+        The maximum number of iterations.
+
     """
-    def __init__(self):
+    def __init__(self, tol: float = 1e-10, max_iter: int = 1000):
         """
         TODO:
             1. add arg for specifying the method for performing PLS
@@ -42,14 +49,17 @@ class OPLS:
         self._T: Optional[np.ndarray] = None
         self._P: Optional[np.ndarray] = None
         self._C: Optional[np.ndarray] = None
+        self._W: Optional[np.ndarray] = None
         # coefficients
         self.coef: Optional[np.ndarray] = None
         # total number of components
         self.npc: Optional[int] = None
+        self.tol = tol
+        self.max_iter = max_iter
 
     def fit(self, x, y, n_comp=None):
         """
-        Fit PLS model.
+        Fits an OPLS model.
 
         Parameters
         ----------
@@ -59,8 +69,8 @@ class OPLS:
             Dependent matrix with size n samples by 1, or a vector
         n_comp: int
             Number of components, default is None, which indicates that
-            largest dimension which is smaller value between n and p
-            will be used.
+            the largest dimension which is the smaller value between n
+            and p will be used.
 
         Returns
         -------
@@ -80,55 +90,22 @@ class OPLS:
         if n_comp is not None and n_comp < npc:
             npc = n_comp
 
-        # initialization
-        Tortho = np.empty((n, npc))
-        Portho = np.empty((p, npc))
-        Wortho = np.empty((p, npc))
-        T, P, C = np.empty((n, npc)), np.empty((p, npc)), np.empty(npc)
+        t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
+            x.copy(), y, npc, self.tol, self.max_iter)
 
-        # X-y variations
-        tw = np.dot(y, x) / np.dot(y, y)
-        tw /= la.norm(tw)
-        # predictive scores
-        tp = np.dot(x, tw)
-        # components
-        w, u, _, t = nipals(x, y)
-        p = np.dot(t, x) / np.dot(t, t)
-        for nc in range(npc):
-            # orthoganol weights
-            w_ortho = p - (np.dot(tw, p) * tw)
-            w_ortho /= la.norm(w_ortho)
-            # orthogonal scores
-            t_ortho = np.dot(x, w_ortho)
-            # orthogonal loadings
-            p_ortho = np.dot(t_ortho, x) / np.dot(t_ortho, t_ortho)
-            # update X to the residue matrix
-            x -= t_ortho[:, np.newaxis] * p_ortho
-            # save to matrix
-            Tortho[:, nc] = t_ortho
-            Portho[:, nc] = p_ortho
-            Wortho[:, nc] = w_ortho
-            # predictive scores
-            tp -= t_ortho * np.dot(p_ortho, tw)
-            T[:, nc] = tp
-            C[nc] = np.dot(y, tp) / np.dot(tp, tp)
-
-            # next component
-            w, u, _, t = nipals(x, y)
-            p = np.dot(t, x) / np.dot(t, t)
-            P[:, nc] = p
-
-        self._Tortho = Tortho
-        self._Portho = Portho
-        self._Wortho = Wortho
+        self._Tortho = t_o
+        self._Portho = p_o
+        self._Wortho = w_o
         # covariate weights
         self._w = tw
 
+        # predictive weights
+        self._W = w_p
         # coefficients and predictive scores
-        self._T = T
-        self._P = P
-        self._C = C
-        self.coef = tw * C[:, np.newaxis]
+        self._T = t_p
+        self._P = p_p
+        self._C = w_y
+        self.coef = coefs
 
         self.npc = npc
 
@@ -158,11 +135,11 @@ class OPLS:
 
         y = np.dot(x, coef)
         if return_scores:
-            return y, np.dot(x, self._w)
+            return y, np.dot(x, self._w.T)
 
         return y
 
-    def correct(self, x, n_component=None, return_scores=False, dot=np.dot):
+    def correct(self, x, n_component=None, return_scores=False):
         """
         Correction of X
 
@@ -187,24 +164,13 @@ class OPLS:
         """
         # TODO: Check X type and dimension consistencies between X and
         #       scores in model.
-        xc = x.copy()
         if n_component is None:
             n_component = self.npc
 
-        if xc.ndim == 1:
-            t = np.empty(n_component)
-            for nc in range(n_component):
-                t_ = dot(xc, self._Wortho[:, nc])
-                xc -= t_ * self._Portho[:, nc]
-                t[nc] = t_
+        if x.ndim == 1:
+            xc, t = correct_x_1d(x.copy(), n_component)
         else:
-            n, c = xc.shape
-            t = np.empty((n, n_component))
-            # scores
-            for nc in range(n_component):
-                t_ = dot(xc, self._Wortho[:, nc])
-                xc -= t_[:, np.newaxis] * self._Portho[:, nc]
-                t[:, nc] = t_
+            xc, t = correct_x_2d(x.copy(), n_component)
 
         if return_scores:
             return xc, t
@@ -226,7 +192,7 @@ class OPLS:
         """
         if n_component is None or n_component > self.npc:
             n_component = self.npc
-        return self._T[:, n_component-1]
+        return self._T[n_component-1]
 
     def ortho_score(self, n_component=None):
         """
@@ -244,17 +210,65 @@ class OPLS:
         """
         if n_component is None or n_component > self.npc:
             n_component = self.npc
-        return self._Tortho[:, n_component-1]
+        return self._Tortho[n_component-1]
+
+    def calculate_vip(self, num_comp: int):
+        """
+        Calculates VIPs
+
+        Parameters
+        ----------
+        num_comp: Number of components.
+
+        Returns
+        -------
+        np.ndarray
+            VIP1
+        np.ndarray
+            VIP2
+        np.ndarray
+            VIP3
+        np.ndarray
+            VIP4
+
+        References
+        ----------
+        [1] B. Galindo-Prieto, L. Eriksson, J. Trygg. Variable
+            influence on projection (VIP) for orthogonal projections
+            to latent structures (OPLS). J Chemometr. 2014, 28, 623-632.
+        [2] B. Galindo-Prieto, L. Eriksson, J. Trygg. Variable
+            influence on projection (VIP) for OPLS models and its
+            applicability in multivariate time series analysis.
+            Chem Int Lab Sys. 2015, 146, 297-304.
+
+        """
+        if num_comp > self.npc:
+            raise ValueError("The number of components input must not be "
+                             "larger than the maximum number of "
+                             f"components {self.npc}.")
+
+        p: int = self._W.shape[0]
+        ssx_o: float = 0.
+        w_weights_o: np.ndarray = np.zeros((num_comp, p))
+        for i in range(num_comp):
+            xrec = np.dot(self._Tortho[:, i][:, np.newaxis],
+                          self._Portho[:, i][np.newaxis, :])
+            ssx_ok = (xrec ** 2).sum()
+            ssx_o += ssx_ok
+            w_weights_o[i] = (self._Wortho[:, i] ** 2) * ssx_ok
+
+        vip_1o = np.sqrt(w_weights_o.sum(axis=0) * p / ssx_o)
+
 
     @property
     def predictive_scores(self):
         """ Orthogonal loadings. """
-        return self._T
+        return self._T.T
 
     @property
     def predictive_loadings(self):
         """ Predictive loadings. """
-        return self._P
+        return self._P.T
 
     @property
     def weights_y(self):
@@ -264,9 +278,9 @@ class OPLS:
     @property
     def orthogonal_loadings(self):
         """ Orthogonal loadings. """
-        return self._Portho
+        return self._Portho.T
 
     @property
     def orthogonal_scores(self):
         """ Orthogonal scores. """
-        return self._Tortho
+        return self._Tortho.T

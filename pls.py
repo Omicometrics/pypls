@@ -1,9 +1,8 @@
 import numpy as np
-import numpy.linalg as la
 
 from typing import Optional
 
-from base import nipals
+from core import pls_c, pls_vip
 
 
 class PLS:
@@ -13,9 +12,10 @@ class PLS:
         self._P: Optional[np.ndarry] = None
         self._W: Optional[np.ndarry] = None
         self._C: Optional[np.ndarry] = None
-        self.coef: Optional[np.ndarry] = None
+        self.coefs: Optional[np.ndarry] = None
+        self._vips: Optional[np.ndarray] = None
 
-    def fit(self, x, y, n_comp=None) -> None:
+    def fit(self, x: np.ndarray, y: np.ndarray, num_comp: int) -> None:
         """
         Fit PLS model
 
@@ -26,7 +26,7 @@ class PLS:
             of samples/instances, p number of variables
         y: np.ndarray
             Dependent variable with size n by 1
-        n_comp: int
+        num_comp: int
             Number of components. Default is None, which indicates that
             smaller number between n and p will be used.
 
@@ -35,64 +35,76 @@ class PLS:
         PLS object
 
         """
-        n, r = x.shape
-        # pre-allocation
-        T = np.empty((n, n_comp))
-        P = np.empty((r, n_comp))
-        W = np.empty((r, n_comp))
-        C = np.empty(n_comp)
-        # iterate through components
-        for nc in range(n_comp):
-            w, u, c, t = nipals(x, y)
-            # loadings
-            p = np.dot(t, x) / np.dot(t, t)
-            # update data matrix for next component
-            x -= t[:, np.newaxis] * p
-            y -= t * c
-            # save to matrix
-            T[:, nc] = t
-            P[:, nc] = p
-            W[:, nc] = w
-            C[nc] = c
+        n, p = x.shape
+        if num_comp > min(n, p):
+            raise ValueError(f"Number of components {num_comp} exceeds the "
+                             f"number of samples {n} or variables {p}.")
 
+        t, w, p, c, coefs = pls_c(x.copy(), y.copy(), num_comp)
         # save results to matrix
-        self._T = T
-        self._P = P
-        self._W = W
-        self._C = C
+        self._T = t
+        self._P = p
+        self._W = w
+        self._C = c
+        self.coefs = coefs
 
-        # coefficients
-        # noinspection SpellCheckingInspection
-        coefs = np.empty((n_comp, r))
-        for nc in range(n_comp):
-            coefs[nc] = np.dot(np.dot(
-                W[:, :nc], la.inv(np.dot(P[:, :nc].T, W[:, :nc]))
-            ), C[:nc])
-        self.coef = coefs
+    def predict(self, x, num_comp=None) -> np.ndarray:
+        """
+        Predicts the input data matrix.
 
-    def predict(self, x, n_component=None) -> np.ndarray:
-        """ Do prediction. """
-        npc = self.coef.shape[1] - 1
-        if n_component is not None and n_component < npc:
-            npc = n_component - 1
-        coef = self.coef[npc]
-        return np.dot(x, coef)
-
-    @property
-    def scores_x(self):
-        """ Scores.
+        Parameters
+        ----------
+        x: np.ndarray
+            x for prediction
+        num_comp: int
+            Number of components. Defaults to None, which indicates that
+            the number of components previously set will be used.
 
         Returns
         -------
         np.ndarray
-            Scores
 
         """
-        return self._T
+        npc: int = self.coefs.shape[1]
+        if num_comp is not None and num_comp > npc:
+            raise ValueError(f"Number of components {num_comp} exceeds the "
+                             f"determined number of components {npc}.")
+        if num_comp is None:
+            npc -= 1
+        else:
+            npc = num_comp - 1
+
+        return np.dot(x, self.coefs[npc])
+
+    def calculate_vip(self) -> np.ndarray:
+        """
+        Calculates variable importance in projection.
+
+        Returns
+        -------
+        np.ndarray
+            Variable importance in projection.
+
+        """
+        return pls_vip(self._W, self._T, self._C)
 
     @property
-    def loadings_x(self):
+    def scores_x(self) -> np.ndarray:
         """
+        Scores.
+
+        Returns
+        -------
+        np.ndarray
+            X Scores
+
+        """
+        return self._T.T
+
+    @property
+    def loadings_x(self) -> np.ndarray:
+        """
+        Loadings.
 
         Returns
         -------
@@ -100,11 +112,12 @@ class PLS:
             loadings
 
         """
-        return self._P
+        return self._P.T
 
     @property
-    def weights_y(self):
+    def weights_y(self) -> np.ndarray:
         """
+        y weights.
 
         Returns
         -------

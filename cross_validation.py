@@ -6,6 +6,8 @@ import typing
 import numpy as np
 import numpy.linalg as la
 
+from core import kfold_cv_opls
+
 import pretreatment
 from pls import PLS
 from opls import OPLS
@@ -31,15 +33,31 @@ class CrossValidation:
         zero-mean-unit-variance scaling, "pareto" for Pareto scaling,
         "minmax" for Min-Max scaling and "mean" for mean centering.
         Default is "pareto".
+    tol: float
+        Tolerance for PLS NIPALS iteration.
+    max_iter: int
+        Maximum number of iterations for PLS NIPALS iteration.
 
     Returns
     -------
     CrossValidation object
 
     """
-    def __init__(self, estimator="opls", kfold=10, scaler="pareto"):
+    def __init__(self, estimator="opls", kfold=10, scaler="pareto",
+                 tol=1.e-10, max_iter=1000):
         # number of folds
-        self.kfold = kfold
+        self.kfold: int = kfold
+        self._scaler_tag: typing.Optional[int] = None
+        if scaler == "mean":
+            self._scaler_tag = 1
+        elif scaler == "pareto":
+            self._scaler_tag = 2
+        elif scaler == "uv":
+            self._scaler_tag = 3
+        elif scaler == "minmax":
+            self._scaler_tag = 4
+        self._tol: float = tol
+        self._max_iter: int = max_iter
         self._scaler_param: str = scaler
         self._estimator_param: str = estimator
         # estimator
@@ -92,16 +110,29 @@ class CrossValidation:
         # set the labels in y to 0 and 1, and name the groups using
         # the labels in y
         y = self._reset_y(y)
-        # matrix dimension
-        n, p = x.shape
+
+        if self._estimator_param == "opls":
+            q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, n_opt, n0 = kfold_cv_opls(
+                x, y, self.kfold, self._scaler_tag, self._tol, self._max_iter)
+            self._opt_component = n_opt
+            self._mis_classifications = no_mcs
+            # Q2
+            self._q2 = q2
+            self._r2xcorr = r2xcorr
+            self._r2xyo = r2xyo
+            self._Tpred = t_p
+            self._Tortho = t_o
+            self._npc0 = n0
+
+        self._n = x.shape[0]
+        self._x = x
+        self.y = y
+
+
         # max number of principal components
         npc0 = min(n, p)
         # preallocation
-        ssx = collections.defaultdict(lambda: collections.defaultdict(list))
-        ssy = []
         ypred, pressy = np.zeros((n, npc0)), np.zeros((n, npc0))
-        tortho, tpred = np.zeros((n, npc0)), np.zeros((n, npc0))
-        pcv = collections.defaultdict(list)
         for train_index, test_index in self._split(y):
             xtr, xte = x[train_index], x[test_index]
             ytr, yte = y[train_index], y[test_index]
@@ -140,26 +171,6 @@ class CrossValidation:
                         xte_corr, n_component=k, return_scores=True
                     )
 
-                    # save the parameters for model quality assessments
-                    # Orthogonal and predictive scores
-                    if xte_scale.ndim == 1:
-                        tortho[test_index, k-1] = tcorr[0]
-                    else:
-                        tortho[test_index, k-1] = tcorr[:, 0]
-                    tpred[test_index, k-1] = tp_k
-
-                    # sum of squares
-                    ssx[k]["corr"].append((xte_corr ** 2).sum())
-                    xte_ortho = np.dot(
-                        tcorr, self.estimator.orthogonal_loadings[:, :k].T
-                    )
-                    ssx[k]["xyo"].append((xte_ortho ** 2).sum())
-                    ssx[k]["total"].append(ssx_tot)
-
-                    # covariances from fitting
-                    tp = self.estimator.predictive_scores[:, k-1]
-                    pcv[k].append(np.dot(tp, xtr_scale) / (tp ** 2).sum())
-
                 else:
                     # prediction
                     yp_k = self.estimator.predict(xte_scale, n_component=k)
@@ -168,26 +179,6 @@ class CrossValidation:
                 ypred[test_index, k-1] = yp_k
                 pressy[test_index, k-1] = (yp_k - yte_scale) ** 2
 
-            ssy.append(ssy_tot)
-
-        # save metrics
-        self._ypred = ypred[:, :npc0]
-        self._pressy = pressy[:, :npc0]
-        self._ssy = sum(ssy)
-        self._n = n
-        self._npc0 = npc0
-        self._x = x
-        self.y = y
-
-        # opls specific metrics
-        if self._estimator_param == "opls":
-            self._Tortho = tortho[:, :npc0]
-            self._Tpred = tpred[:, :npc0]
-            self._ssx = ssx
-            self._pcv = pcv
-
-        # summarize cross validation results
-        self._summary_cv()
         # refit for a final model
         self._create_optimal_model(x, y)
 
@@ -711,7 +702,7 @@ class CrossValidation:
         # index of valid variables
         idx = idx[~is_unique_value]
 
-        return idx, x[:, idx]
+        return idx, np.ascontiguousarray(x[:, idx], dtype=np.float64)
 
     def _split(self, y) -> typing.Iterable:
         """
@@ -826,7 +817,7 @@ class CrossValidation:
         else:
             for i in range(npc):
                 xrec = np.dot(self.estimator.scores_x[:, i][:, np.newaxis],
-                              self.estimator.loadings_x[:, i][:, np.newaxis])
+                              self.estimator.loadings_x[:, i][np.newaxis, :])
                 yrec = np.dot(self.estimator.scores_x[:, i][:, np.newaxis],
                               self.estimator.weights_y[i])
                 r2x_pc[i] = ((x - xrec) ** 2).sum() / ssx
@@ -903,7 +894,7 @@ class CrossValidation:
 
         # reset the values for each class
         groups = collections.defaultdict()
-        y_reset = np.zeros_like(y, dtype=float)
+        y_reset = np.zeros_like(y, dtype=np.float64)
         for i, label in enumerate(labels):
             y_reset[y == label] = i
             groups[i] = label if isinstance(label, str) else str(int(label))

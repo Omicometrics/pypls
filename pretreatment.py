@@ -2,7 +2,7 @@
 Preprocess data matrix.
 """
 import numpy as np
-from typing import Optional
+from typing import Optional, Callable
 
 
 class Scaler:
@@ -19,13 +19,13 @@ class Scaler:
 
     def __init__(self, scaler="pareto"):
         if scaler == "uv":
-            self.scaler = self._autoscaling
+            self.scaler: Callable = self._autoscaling
         elif scaler == "pareto":
-            self.scaler = self._paretoscaling
+            self.scaler: Callable = self._paretoscaling
         elif scaler == "mean":
-            self.scaler = self._meancentering
+            self.scaler: Callable = self._meancentering
         elif scaler == "minmax":
-            self.scaler = self._minmaxscaling
+            self.scaler: Callable = self._minmaxscaling
 
         self._center: Optional[np.ndarray] = None
         self._normalizer: Optional[np.ndarray] = None
