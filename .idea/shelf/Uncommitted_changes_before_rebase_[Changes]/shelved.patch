@@ -1,0 +1,103 @@
+Index: .idea/workspace.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<project version=\"4\">\r\n  <component name=\"AutoImportSettings\">\r\n    <option name=\"autoReloadType\" value=\"SELECTIVE\" />\r\n  </component>\r\n  <component name=\"ChangeListManager\">\r\n    <list default=\"true\" id=\"2cb325dc-f80c-468f-a4bc-3ab688b37e46\" name=\"Changes\" comment=\"Update the permutation test, plots and document.\" />\r\n    <option name=\"SHOW_DIALOG\" value=\"false\" />\r\n    <option name=\"HIGHLIGHT_CONFLICTS\" value=\"true\" />\r\n    <option name=\"HIGHLIGHT_NON_ACTIVE_CHANGELIST\" value=\"false\" />\r\n    <option name=\"LAST_RESOLUTION\" value=\"IGNORE\" />\r\n  </component>\r\n  <component name=\"Git.Settings\">\r\n    <option name=\"RECENT_BRANCH_BY_REPOSITORY\">\r\n      <map>\r\n        <entry key=\"$PROJECT_DIR$\" value=\"master\" />\r\n      </map>\r\n    </option>\r\n    <option name=\"RECENT_GIT_ROOT_PATH\" value=\"$PROJECT_DIR$\" />\r\n  </component>\r\n  <component name=\"MarkdownSettingsMigration\">\r\n    <option name=\"stateVersion\" value=\"1\" />\r\n  </component>\r\n  <component name=\"ProjectColorInfo\">{\r\n  &quot;associatedIndex&quot;: 7\r\n}</component>\r\n  <component name=\"ProjectId\" id=\"2aknTdrhN6OWSIWcyUheQw9mgJ5\" />\r\n  <component name=\"ProjectLevelVcsManager\">\r\n    <OptionsSetting value=\"false\" id=\"Update\" />\r\n    <ConfirmationsSetting value=\"2\" id=\"Add\" />\r\n  </component>\r\n  <component name=\"ProjectViewState\">\r\n    <option name=\"hideEmptyMiddlePackages\" value=\"true\" />\r\n    <option name=\"showLibraryContents\" value=\"true\" />\r\n  </component>\r\n  <component name=\"PropertiesComponent\">{\r\n  &quot;keyToString&quot;: {\r\n    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,\r\n    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,\r\n    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,\r\n    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,\r\n    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,\r\n    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,\r\n    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,\r\n    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,\r\n    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,\r\n    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;\r\n  }\r\n}</component>\r\n  <component name=\"SharedIndexes\">\r\n    <attachedChunks>\r\n      <set>\r\n        <option value=\"bundled-python-sdk-50da183f06c8-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13135.95\" />\r\n      </set>\r\n    </attachedChunks>\r\n  </component>\r\n  <component name=\"SpellCheckerSettings\" RuntimeDictionaries=\"0\" Folders=\"0\" CustomDictionaries=\"0\" DefaultDictionary=\"application-level\" UseSingleDictionary=\"true\" transferred=\"true\" />\r\n  <component name=\"TaskManager\">\r\n    <task active=\"true\" id=\"Default\" summary=\"Default task\">\r\n      <changelist id=\"2cb325dc-f80c-468f-a4bc-3ab688b37e46\" name=\"Changes\" comment=\"\" />\r\n      <created>1704871454383</created>\r\n      <option name=\"number\" value=\"Default\" />\r\n      <option name=\"presentableId\" value=\"Default\" />\r\n      <updated>1704871454383</updated>\r\n      <workItem from=\"1704871455946\" duration=\"29905000\" />\r\n      <workItem from=\"1704956571542\" duration=\"25585000\" />\r\n    </task>\r\n    <task id=\"LOCAL-00001\" summary=\"Add permutation test to assess the significance of the model specified by cross validation; add plots of permutation test results; update the readme accordingly; other fixes.\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1704955711014</created>\r\n      <option name=\"number\" value=\"00001\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00001\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1704955711014</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00002\" summary=\"Few modifications.\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1704957913844</created>\r\n      <option name=\"number\" value=\"00002\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00002\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1704957913844</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00003\" summary=\"Update readme.\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1704973106973</created>\r\n      <option name=\"number\" value=\"00003\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00003\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1704973106973</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00004\" summary=\"Update readme.\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1704973518179</created>\r\n      <option name=\"number\" value=\"00004\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00004\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1704973518179</updated>\r\n    </task>\r\n    <task id=\"LOCAL-00005\" summary=\"Update the permutation test, plots and document.\">\r\n      <option name=\"closed\" value=\"true\" />\r\n      <created>1705057873053</created>\r\n      <option name=\"number\" value=\"00005\" />\r\n      <option name=\"presentableId\" value=\"LOCAL-00005\" />\r\n      <option name=\"project\" value=\"LOCAL\" />\r\n      <updated>1705057873053</updated>\r\n    </task>\r\n    <option name=\"localTasksCounter\" value=\"6\" />\r\n    <servers />\r\n  </component>\r\n  <component name=\"TypeScriptGeneratedFilesManager\">\r\n    <option name=\"version\" value=\"3\" />\r\n  </component>\r\n  <component name=\"VcsManagerConfiguration\">\r\n    <option name=\"ADD_EXTERNAL_FILES_SILENTLY\" value=\"true\" />\r\n    <MESSAGE value=\"Add permutation test to assess the significance of the model specified by cross validation; add plots of permutation test results; update the readme accordingly; other fixes.\" />\r\n    <MESSAGE value=\"Few modifications.\" />\r\n    <MESSAGE value=\"Update readme.\" />\r\n    <MESSAGE value=\"Update the permutation test, plots and document.\" />\r\n    <option name=\"LAST_COMMIT_MESSAGE\" value=\"Update the permutation test, plots and document.\" />\r\n  </component>\r\n</project>
+===================================================================
+diff --git a/.idea/workspace.xml b/.idea/workspace.xml
+--- a/.idea/workspace.xml	
++++ b/.idea/workspace.xml	
+@@ -4,7 +4,16 @@
+     <option name="autoReloadType" value="SELECTIVE" />
+   </component>
+   <component name="ChangeListManager">
+-    <list default="true" id="2cb325dc-f80c-468f-a4bc-3ab688b37e46" name="Changes" comment="Update the permutation test, plots and document." />
++    <list default="true" id="2cb325dc-f80c-468f-a4bc-3ab688b37e46" name="Changes" comment="Update readme.">
++      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2024_3_22_pm_[Changes]/shelved.patch" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2024_3_22_pm__Changes_.xml" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2024_7_41_pm_[Changes]/shelved.patch" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/.idea/shelf/Uncommitted_changes_before_Update_at_11_1_2024_7_41_pm__Changes_.xml" beforeDir="false" />
++      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/cross_validation.py" beforeDir="false" afterPath="$PROJECT_DIR$/cross_validation.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/opls.py" beforeDir="false" afterPath="$PROJECT_DIR$/opls.py" afterDir="false" />
++      <change beforePath="$PROJECT_DIR$/pls.py" beforeDir="false" afterPath="$PROJECT_DIR$/pls.py" afterDir="false" />
++    </list>
+     <option name="SHOW_DIALOG" value="false" />
+     <option name="HIGHLIGHT_CONFLICTS" value="true" />
+     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+@@ -50,7 +59,8 @@
+   <component name="SharedIndexes">
+     <attachedChunks>
+       <set>
+-        <option value="bundled-python-sdk-50da183f06c8-2887949eec09-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-233.13135.95" />
++        <option value="bundled-js-predefined-1d06a55b98c1-74d2a5396914-JavaScript-PY-241.14494.241" />
++        <option value="bundled-python-sdk-0509580d9d50-28c9f5db9ffe-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-241.14494.241" />
+       </set>
+     </attachedChunks>
+   </component>
+@@ -63,7 +73,11 @@
+       <option name="presentableId" value="Default" />
+       <updated>1704871454383</updated>
+       <workItem from="1704871455946" duration="29905000" />
+-      <workItem from="1704956571542" duration="25585000" />
++      <workItem from="1704956571542" duration="27350000" />
++      <workItem from="1705072767110" duration="18000" />
++      <workItem from="1713768181663" duration="12650000" />
++      <workItem from="1716893960570" duration="23735000" />
++      <workItem from="1718103376953" duration="1509000" />
+     </task>
+     <task id="LOCAL-00001" summary="Add permutation test to assess the significance of the model specified by cross validation; add plots of permutation test results; update the readme accordingly; other fixes.">
+       <option name="closed" value="true" />
+@@ -105,7 +119,39 @@
+       <option name="project" value="LOCAL" />
+       <updated>1705057873053</updated>
+     </task>
+-    <option name="localTasksCounter" value="6" />
++    <task id="LOCAL-00006" summary="Change the required number of permutation test to 20, instead of 200; add permutation plot; add plot of distribution of permutation metrics; thus separate these two plots.">
++      <option name="closed" value="true" />
++      <created>1713806065217</created>
++      <option name="number" value="00006" />
++      <option name="presentableId" value="LOCAL-00006" />
++      <option name="project" value="LOCAL" />
++      <updated>1713806065217</updated>
++    </task>
++    <task id="LOCAL-00007" summary="Update readme.">
++      <option name="closed" value="true" />
++      <created>1713855582593</created>
++      <option name="number" value="00007" />
++      <option name="presentableId" value="LOCAL-00007" />
++      <option name="project" value="LOCAL" />
++      <updated>1713855582593</updated>
++    </task>
++    <task id="LOCAL-00008" summary="Update readme.">
++      <option name="closed" value="true" />
++      <created>1713855673845</created>
++      <option name="number" value="00008" />
++      <option name="presentableId" value="LOCAL-00008" />
++      <option name="project" value="LOCAL" />
++      <updated>1713855673845</updated>
++    </task>
++    <task id="LOCAL-00009" summary="Update readme.">
++      <option name="closed" value="true" />
++      <created>1713855698754</created>
++      <option name="number" value="00009" />
++      <option name="presentableId" value="LOCAL-00009" />
++      <option name="project" value="LOCAL" />
++      <updated>1713855698754</updated>
++    </task>
++    <option name="localTasksCounter" value="10" />
+     <servers />
+   </component>
+   <component name="TypeScriptGeneratedFilesManager">
+@@ -115,8 +161,9 @@
+     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+     <MESSAGE value="Add permutation test to assess the significance of the model specified by cross validation; add plots of permutation test results; update the readme accordingly; other fixes." />
+     <MESSAGE value="Few modifications." />
++    <MESSAGE value="Update the permutation test, plots and document." />
++    <MESSAGE value="Change the required number of permutation test to 20, instead of 200; add permutation plot; add plot of distribution of permutation metrics; thus separate these two plots." />
+     <MESSAGE value="Update readme." />
+-    <MESSAGE value="Update the permutation test, plots and document." />
+-    <option name="LAST_COMMIT_MESSAGE" value="Update the permutation test, plots and document." />
++    <option name="LAST_COMMIT_MESSAGE" value="Update readme." />
+   </component>
+ </project>
+\ No newline at end of file

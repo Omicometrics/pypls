@@ -126,3 +126,51 @@ class PLS:
 
         """
         return self._C
+
+    @property
+    def weigths_x(self):
+        """
+
+        Returns
+        -------
+            np.ndarray
+                x weights
+
+        """
+        return self._W
+
+    @property
+    def weigths_x(self):
+        """
+
+        Returns
+        -------
+            np.ndarray
+                x weights
+
+        """
+        return self._W
+
+    @property
+    def weigths_x(self):
+        """
+
+        Returns
+        -------
+            np.ndarray
+                x weights
+
+        """
+        return self._W
+
+    @property
+    def weigths_x(self):
+        """
+
+        Returns
+        -------
+            np.ndarray
+                x weights
+
+        """
+        return self._W

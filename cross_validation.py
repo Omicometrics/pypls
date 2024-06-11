@@ -87,6 +87,7 @@ class CrossValidation:
         self._corr_y_perms: typing.Optional[np.ndarray] = None
         self._perm_q2: typing.Optional[np.ndarray] = None
         self._perm_err: typing.Optional[np.ndarray] = None
+        self._vip: typing.Optional[np.ndarray] = None
 
     def fit(self, x, y):
         """
@@ -744,6 +745,52 @@ class CrossValidation:
                 for blk, idx, nk in zip(blks, group_index, counts):
                     trains[idx[blk * i: min(blk * (i + 1), nk)]] = False
                 yield indices[trains], indices[np.logical_not(trains)]
+
+    def _cal_vip(self) -> None:
+        """
+        Calculates variable importance in projection (VIP).
+        """
+        npc = self._opt_component + 1
+        p = self._x.shape[1]
+        w_weights: np.ndarray = np.zeros((npc, p), dtype=np.float64)
+        if self._scaler_param == "uv":
+            # already standardized to zero mean and unit variance,
+            # directly use the results
+            if self._estimator_param == "opls":
+                tp = self.estimator.predictive_score(npc)
+                ss_tp = np.dot(tp, tp)
+                # loadings
+                w = np.dot(tp, x)
+                self._cov = w / ss_tp
+                self._corr = w / (np.sqrt(ss_tp) * la.norm(x, axis=0))
+
+                # reconstruct variable matrix X
+                # from orthogonal corrections.
+                o_scores = self.estimator.orthogonal_scores
+                o_loads = self.estimator.orthogonal_loadings
+                p_scores = self.estimator.predictive_scores
+                p_loads = self.estimator.predictive_loadings
+                for i in range(npc):
+                    xrec = np.dot(o_scores[:, i][:, np.newaxis],
+                                  o_loads[:, i][np.newaxis, :])
+                    # from predictive scores
+                    xrec += np.dot(p_scores[:, i][:, np.newaxis],
+                                   p_loads[:, i][np.newaxis, :])
+                    r2x_pc[i] = ((x - xrec) ** 2).sum() / ssx
+
+                    # reconstruct dependent vector y
+                    yrec = p_scores[:, i] * self.estimator.weights_y[i]
+                    r2y_pc[i] = ((y - yrec) ** 2).sum() / ssy
+            else:
+                ssy_exp: float = 0.
+                for i in range(npc):
+                    yrec = np.dot(self.estimator.scores_x[:, i][:, np.newaxis],
+                                  self.estimator.weights_y[i])
+                    ssk = (yrec ** 2).sum()
+                    ssy_exp += ssk
+                    w_weights[i] = (self.estimator.weights_x[:, i] ** 2) * ssk
+                vips = np.sqrt(w_weights.sum(axis=0) * p / ssy_exp)
+        self._vip = vips.copy()
 
     def _create_optimal_model(self, x, y) -> None:
         """

@@ -2,6 +2,7 @@
 Orthogonal Projection on Latent Structure (O-PLS)
 """
 import numpy as np
+from numpy import linalg as la
 from typing import Optional, Tuple
 from core import correct_fit, correct_x_1d, correct_x_2d
 
