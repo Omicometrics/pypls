@@ -3,53 +3,38 @@ import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-from unittest import TestCase
 
 from .opls import correct_fit, correct_x_1d, correct_x_2d
 
 path = os.path.dirname(os.path.abspath(__file__))
 
 
-def get_data():
-    data_texts = np.genfromtxt(os.path.join(path, r"ST002016_AN003285.txt"),
-                               delimiter="\t", dtype=str)
-    return data_texts
-
-
-class TestOpls(TestCase):
+class TestOpls(unittest.TestCase):
     def setUp(self):
-        data_txt = get_data()
-        labels = data_txt[1][1:]
-        ix_1 = ((labels == "group:COVID_before_ventilator")
-                | (labels == "group:COVID_non-acute")
-                | (labels == "group:COVID_ICU-no"))
-        ix_2 = ((labels == "group:Healthy"))
-        print(ix_1.sum(), ix_2.sum())
-        data_txt[data_txt==""] = "0."
-        tmp_x = data_txt[2:][:, 1:].astype(np.float64).T
-        x = np.ascontiguousarray(np.r_[tmp_x[ix_1], tmp_x[ix_2]])
-        self.y = np.zeros(x.shape[0], dtype=np.float64)
-        self.y[np.count_nonzero(ix_1):] = 1.
-
-        x_m = x.mean(axis=0)
-        x_sd = x.std(axis=0)
-
-        self.x = (x - x_m) / x_sd
+        self.x = np.ascontiguousarray([[-2.18, -2.18],
+                                       [1.84, -0.16],
+                                       [-0.48, 1.52],
+                                       [0.83, 0.83]], dtype=np.float64)
+        self.y = np.fromiter([2., 2., 0., -4.], dtype=np.float64)
 
     def test_correct_fit(self):
         t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
-            self.x.copy(), self.y, 2, 1e-6, 1000)
+            self.x.copy(), self.y.copy(), 1, 1e-6, 1000)
+        w_o_t = np.fromiter([-0.89, 0.45], dtype=np.float64)
+        p_o_t = np.fromiter([-1.16, -0.09], dtype=np.float64)
+        t_o_t = np.fromiter([0.97, -1.71, 1.11, -0.37], dtype=np.float64)
+        self.assertTrue(np.allclose(w_o[0], w_o_t, atol=0.01))
+        self.assertTrue(np.allclose(p_o[0], p_o_t, atol=0.01))
+        self.assertTrue(np.allclose(t_o[0], t_o_t, atol=0.01))
 
-        jx = self.y == 1.
-
-        fig, ax = plt.subplots()
-        ax.plot(t_p[1][jx], t_o[1][jx], "r.")
-        ax.plot(t_p[1][~jx], t_o[1][~jx], "b+")
-        plt.show()
+        w_p_t = np.fromiter([-0.45, -0.89], dtype=np.float64)
+        p_p_t = np.fromiter([-0.45, -0.89], dtype=np.float64)
+        self.assertTrue(np.allclose(w_p[0], w_p_t, atol=0.01))
+        self.assertTrue(np.allclose(p_p[0], p_p_t, atol=0.01))
 
     def test_correct_x_1d(self):
         t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
-            self.x.copy(), self.y, 2, 1e-6, 1000)
+            self.x.copy(), self.y, 1, 1e-6, 1000)
         x_corr, tp = correct_x_1d(self.x[0].copy(), w_o, p_o)
         with np.printoptions(precision=3, suppress=True):
             print(x_corr)
@@ -57,7 +42,7 @@ class TestOpls(TestCase):
 
     def test_correct_x_2d(self):
         t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
-            self.x.copy(), self.y, 2, 1e-6, 1000)
+            self.x.copy(), self.y, 1, 1e-6, 1000)
         x_corr, tp = correct_x_2d(self.x[:, :3].copy(), w_o, p_o)
         with np.printoptions(precision=3, suppress=True):
             print(x_corr)

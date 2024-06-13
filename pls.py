@@ -65,7 +65,7 @@ class PLS:
         np.ndarray
 
         """
-        npc: int = self.coefs.shape[1]
+        npc: int = self.coefs.shape[0]
         if num_comp is not None and num_comp > npc:
             raise ValueError(f"Number of components {num_comp} exceeds the "
                              f"determined number of components {npc}.")

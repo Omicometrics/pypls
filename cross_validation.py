@@ -6,7 +6,7 @@ import typing
 import numpy as np
 import numpy.linalg as la
 
-from core import kfold_cv_opls
+from core import kfold_cv_opls, kfold_cv_pls
 
 import pretreatment
 from pls import PLS
@@ -115,70 +115,27 @@ class CrossValidation:
         if self._estimator_param == "opls":
             q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, n_opt, n0 = kfold_cv_opls(
                 x, y, self.kfold, self._scaler_tag, self._tol, self._max_iter)
-            self._opt_component = n_opt
-            self._mis_classifications = no_mcs
             # Q2
-            self._q2 = q2
             self._r2xcorr = r2xcorr
             self._r2xyo = r2xyo
             self._Tpred = t_p
             self._Tortho = t_o
             self._npc0 = n0
+        else:
+            q2, no_mcs, t_p, n_opt, n0 = kfold_cv_pls(
+                x, y, self.kfold, self._scaler_tag, self._tol, self._max_iter)
+
+        self._opt_component = n_opt
+        self._mis_classifications = no_mcs
+        # Q2
+        self._q2 = q2
+        # predictive scores if OPLS is used, or scores if PLS is used
+        self._Tpred = t_p
+        self._npc0 = n0
 
         self._n = x.shape[0]
         self._x = x
         self.y = y
-
-
-        # max number of principal components
-        npc0 = min(n, p)
-        # preallocation
-        ypred, pressy = np.zeros((n, npc0)), np.zeros((n, npc0))
-        for train_index, test_index in self._split(y):
-            xtr, xte = x[train_index], x[test_index]
-            ytr, yte = y[train_index], y[test_index]
-
-            # check the data matrix to remove variables having only 1 unique
-            # value.
-            val_ix, xtr = self._check_x(xtr)
-            xte = xte[:, val_ix]
-
-            # scale matrix
-            xtr_scale = self.scaler.fit(xtr)
-            xte_scale = self.scaler.scale(xte)
-            ytr_scale = self.scaler.fit(ytr)
-            yte_scale = self.scaler.scale(yte)
-
-            # variances
-            ssy_tot = (yte_scale ** 2).sum()
-            ssx_tot = (xte_scale ** 2).sum()
-
-            # fit the model
-            npc = min(xtr.shape)
-            self.estimator.fit(xtr_scale.copy(), ytr_scale, n_comp=npc)
-            if npc < npc0:
-                npc0 = npc
-
-            # do prediction iterating through components
-            for k in range(1, npc+1):
-                # if OPLS is used, the test matrix should be corrected to
-                # remove orthogonal components
-                if self._estimator_param == "opls":
-                    xte_corr, tcorr = self.estimator.correct(
-                        xte_scale, n_component=k, return_scores=True
-                    )
-                    # prediction
-                    yp_k, tp_k = self.estimator.predict(
-                        xte_corr, n_component=k, return_scores=True
-                    )
-
-                else:
-                    # prediction
-                    yp_k = self.estimator.predict(xte_scale, n_component=k)
-
-                # predicted y
-                ypred[test_index, k-1] = yp_k
-                pressy[test_index, k-1] = (yp_k - yte_scale) ** 2
 
         # refit for a final model
         self._create_optimal_model(x, y)

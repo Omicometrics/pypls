@@ -1,7 +1,7 @@
 from .nipals import nipals
 from .pls import pls_c, pls_vip
 from .opls import correct_fit, correct_x_1d, correct_x_2d
-from .cross_validation import kfold_cv_opls
+from .cross_validation import kfold_cv_opls, kfold_cv_pls
 
 
 __all__ = [
@@ -11,5 +11,6 @@ __all__ = [
     "correct_fit",
     "correct_x_1d",
     "correct_x_2d",
-    "kfold_cv_opls"
+    "kfold_cv_opls",
+    "kfold_cv_pls"
 ]
