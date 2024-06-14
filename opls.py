@@ -2,9 +2,8 @@
 Orthogonal Projection on Latent Structure (O-PLS)
 """
 import numpy as np
-from numpy import linalg as la
 from typing import Optional, Tuple
-from core import correct_fit, correct_x_1d, correct_x_2d
+from core import correct_fit, correct_x_1d, correct_x_2d, summary_opls
 
 
 class OPLS:
@@ -53,6 +52,13 @@ class OPLS:
         self._W: Optional[np.ndarray] = None
         # coefficients
         self.coef: Optional[np.ndarray] = None
+        # statistics
+        self.cov: Optional[np.ndarray] = None
+        self.corr: Optional[np.ndarray] = None
+        self.r2x: Optional[np.ndarray] = None
+        self.r2x_cum: Optional[np.ndarray] = None
+        self.r2y: Optional[np.ndarray] = None
+        self.r2y_cum: Optional[np.ndarray] = None
         # total number of components
         self.npc: Optional[int] = None
         self.tol = tol
@@ -94,6 +100,10 @@ class OPLS:
         t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
             x.copy(), y, npc, self.tol, self.max_iter)
 
+        # get the statistics
+        cov, corr, r2x, r2x_cum, r2y, r2y_cum = summary_opls(
+            x, y, t_p, t_o, p_p, p_o, w_y, n_comp)
+
         self._Tortho = t_o
         self._Portho = p_o
         self._Wortho = w_o
@@ -107,6 +117,14 @@ class OPLS:
         self._P = p_p
         self._C = w_y
         self.coef = coefs
+
+        # summaries of the fits
+        self.cov = cov
+        self.corr = corr
+        self.r2x = r2x
+        self.r2x_cum = r2x_cum
+        self.r2y = r2y
+        self.r2y_cum = r2y_cum
 
         self.npc = npc
 

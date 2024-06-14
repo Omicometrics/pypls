@@ -4,25 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2cb325dc-f80c-468f-a4bc-3ab688b37e46" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/other.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib.win-amd64-cpython-310/core/cross_validation.cp310-win_amd64.pyd" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib.win-amd64-cpython-310/core/nipals.cp310-win_amd64.pyd" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib.win-amd64-cpython-310/core/opls.cp310-win_amd64.pyd" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/lib.win-amd64-cpython-310/core/pls.cp310-win_amd64.pyd" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/cross_validation.cp310-win_amd64.exp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/cross_validation.cp310-win_amd64.lib" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/cross_validation.obj" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/nipals.cp310-win_amd64.exp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/nipals.cp310-win_amd64.lib" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/nipals.obj" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/opls.cp310-win_amd64.exp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/opls.cp310-win_amd64.lib" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/opls.obj" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/pls.cp310-win_amd64.exp" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/pls.cp310-win_amd64.lib" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/build/temp.win-amd64-cpython-310/Release/core/pls.obj" afterDir="false" />
+    <list default="true" id="2cb325dc-f80c-468f-a4bc-3ab688b37e46" name="Changes" comment="commit">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/cross_validation.pyx" beforeDir="false" afterPath="$PROJECT_DIR$/core/cross_validation.pyx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/opls.pyx" beforeDir="false" afterPath="$PROJECT_DIR$/core/opls.pyx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/pls.pyx" beforeDir="false" afterPath="$PROJECT_DIR$/core/pls.pyx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/test_cross_validation.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/test_cross_validation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/core/test_opls.py" beforeDir="false" afterPath="$PROJECT_DIR$/core/test_opls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cross_validation.py" beforeDir="false" afterPath="$PROJECT_DIR$/cross_validation.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/opls.py" beforeDir="false" afterPath="$PROJECT_DIR$/opls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pls.py" beforeDir="false" afterPath="$PROJECT_DIR$/pls.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -138,7 +130,7 @@
       <workItem from="1704871455946" duration="29905000" />
       <workItem from="1704956571542" duration="25585000" />
       <workItem from="1718114930517" duration="50923000" />
-      <workItem from="1718263961979" duration="301000" />
+      <workItem from="1718263961979" duration="37486000" />
     </task>
     <task id="LOCAL-00001" summary="Add permutation test to assess the significance of the model specified by cross validation; add plots of permutation test results; update the readme accordingly; other fixes.">
       <option name="closed" value="true" />
@@ -204,7 +196,15 @@
       <option name="project" value="LOCAL" />
       <updated>1718264222290</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="commit">
+      <option name="closed" value="true" />
+      <created>1718264573964</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1718264573964</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -233,6 +233,6 @@
     <option name="LAST_COMMIT_MESSAGE" value="commit" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/pypls$.coverage" NAME=" Coverage Results" MODIFIED="1718262679769" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/pypls$.coverage" NAME=" Coverage Results" MODIFIED="1718362007511" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

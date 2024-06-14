@@ -6,8 +6,6 @@ from .cross_validation import kfold_cv_opls, kfold_cv_pls
 import numpy as np
 import matplotlib.pyplot as plt
 
-from .opls import correct_fit, correct_x_1d, correct_x_2d
-
 path = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -27,13 +25,13 @@ class TestOpls(unittest.TestCase):
         self.y[np.count_nonzero(ix_1):] = 1.
 
     def test_kfold_cv_opls(self):
-        q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, n_opt, n0 = kfold_cv_opls(
-            self.x, self.y, 5, 3, 1e-10, 1000)
+        (q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, p_p, p_o, n_opt,
+         n0) = kfold_cv_opls(self.x, self.y, 5, 3, 1e-10, 1000)
 
         # print("==" * 20)
         # print(self.x.shape)
         # with np.printoptions(suppress=True, precision=4):
-        #     print(q2)
+        #     print(p_p)
         #     print(r2xyo)
         #     print(r2xcorr)
         #     print(no_mcs)
@@ -46,8 +44,13 @@ class TestOpls(unittest.TestCase):
         ax.plot(t_p[n_opt][~jx], t_o[n_opt][~jx], "b+")
         plt.show()
 
+        fig, ax = plt.subplots()
+        ax.bar(np.arange(p_p.shape[1]), p_p.mean(axis=0))
+        plt.show()
+
     def test_kfold_cv_pls(self):
-        q2, no_mcs, cv_t, n_opt, n0 = kfold_cv_pls(self.x, self.y, 5, 3, 1e-10, 1000)
+        q2, no_mcs, cv_t, cv_p, n_opt, n0 = kfold_cv_pls(self.x, self.y, 5, 3,
+                                                         1e-10, 1000)
 
         with np.printoptions(suppress=True, precision=4):
             print(q2[:n_opt + 3])

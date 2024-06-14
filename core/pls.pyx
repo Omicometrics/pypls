@@ -130,8 +130,7 @@ def pls_c(double[:, ::1] x, double[::1] y, int num_comp, double tol = 1e-10,
 
     """
     cdef:
-        Py_ssize_t nc, i, j, k, nb
-        Py_ssize_t kb = -1
+        Py_ssize_t nc, i, j, nb
         Py_ssize_t n = x.shape[0]
         Py_ssize_t p = x.shape[1]
         double * tmp_pc = <double *> malloc(num_comp * sizeof(double))
@@ -139,7 +138,6 @@ def pls_c(double[:, ::1] x, double[::1] y, int num_comp, double tol = 1e-10,
         double[:, ::1] w = np.zeros((num_comp, p), dtype=DTYPE_F)
         double[:, ::1] ld = np.zeros((num_comp, p), dtype=DTYPE_F)
         double[:, ::1] coefs = np.zeros((num_comp, p), dtype=DTYPE_F)
-        double[:, ::1] vips = np.zeros((num_comp, p), dtype=DTYPE_F)
         double[:, ::1] inv_pw
         double[::1] yw = np.zeros(num_comp, dtype=DTYPE_F)
         double v
@@ -151,7 +149,7 @@ def pls_c(double[:, ::1] x, double[::1] y, int num_comp, double tol = 1e-10,
         inv_pw = np.linalg.inv(np.dot(ld[:nb], w[:nb].T))
         for i in range(nb):
             v = 0.
-            for j in range(nb):
+            for j in range(i, nb):
                 v += inv_pw[i, j] * yw[j]
             tmp_pc[i] = v
 
@@ -166,6 +164,89 @@ def pls_c(double[:, ::1] x, double[::1] y, int num_comp, double tol = 1e-10,
     return np.asarray(t), np.asarray(w), np.asarray(ld), np.asarray(yw), np.asarray(coefs)
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+@cython.cdivision(True)
+def summary_pls(double[:, ::1] x, double[::1] y, double[:, ::1] scores,
+                double[:, ::1] loadings, double[::1] y_weights, int num_pc):
+    """
+    Summarizes PLs.
+
+    Parameters
+    ----------
+    x: np.ndarray
+        x
+    y: np.ndarray
+        y
+    scores: np.ndarray
+        PLS scores.
+    loadings: np.ndarray
+        PLS loadings.
+    y_weights: np.ndarray
+        y weights
+    num_pc: int
+        Number of latent variables
+
+    Returns
+    -------
+
+    """
+    cdef:
+        Py_ssize_t i, j, a, ji
+        Py_ssize_t n = x.shape[0]
+        Py_ssize_t p = x.shape[1]
+        Py_ssize_t npc = <ssize_t> num_pc - 1
+        double * rec_x = <double *> calloc(n * p, sizeof(double))
+        double * rec_y = <double *> calloc(n, sizeof(double))
+        double[::1] r2x = np.zeros(num_pc, dtype=DTYPE_F)
+        double[::1] r2x_cum = np.zeros(num_pc, dtype=DTYPE_F)
+        double[::1] r2y = np.zeros(num_pc, dtype=DTYPE_F)
+        double[::1] r2y_cum = np.zeros(num_pc, dtype=DTYPE_F)
+        double ssx = 0.
+        double ssy = 0.
+        double s, rss, rss_a, d
+
+    for i in range(n):
+        for j in range(p):
+            ssx += x[i, j] * x[i, j]
+        ssy = y[i] * y[i]
+
+    for a in range(num_pc):
+        ji = 0
+        rss = 0.
+        rss_a = 0.
+        for i in range(n):
+            for j in range(p):
+                s = scores[a, i] * loadings[a, j]
+                d = x[i, j] - s
+                rss_a += d * d
+                rec_x[ji] += s
+                d = x[i, j] - rec_x[ji]
+                rss += d * d
+                ji += 1
+        r2x[a] = 1. - rss_a / ssx
+        r2x_cum[a] = 1. - rss / ssx
+
+        rss = 0.
+        rss_a = 0.
+        for i in range(n):
+            s = scores[a, i] * y_weights[i]
+            d = y[i] - s
+            rec_y[i] += s
+            rss_a += d * d
+            d = y[i] - rec_y[i]
+            rss += d * d
+        r2y[a] = 1. - rss_a / ssy
+        r2y_cum[a] = 1. - rss / ssy
+
+    free(rec_x)
+    free(rec_y)
+
+    return np.asarray(r2x), np.asarray(r2x_cum), np.asarray(r2y), np.asarray(r2y_cum)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def pls_vip(double[:, ::1] w, double[:, ::1] t, double[::1] c):
     """
     Calculates VIPs of PLS.

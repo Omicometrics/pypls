@@ -1,7 +1,7 @@
 cimport cython
 
 from libc.math cimport sqrt
-from libc.stdlib cimport malloc, free
+from libc.stdlib cimport malloc, calloc, free
 
 import numpy as np
 cimport numpy as np
@@ -306,3 +306,120 @@ def correct_x_2d(double[:, ::1] x, double[:, ::1] wortho, double[:, ::1] portho)
     correct_2d_(x, wortho, portho, scores)
 
     return np.asarray(x), np.asarray(scores)
+
+
+@cython.wraparound(False)
+@cython.boundscheck(False)
+@cython.cdivision(True)
+def summary_opls(double[:, ::1] x, double[::1] y, double[:, ::1] pred_scores,
+                 double[:, ::1] ortho_scores, double[:, ::1] pred_loadings,
+                 double[:, ::1] ortho_loadings, double[::1] y_weights,
+                 int num_pc):
+    """
+    Summarizes OPLS fittings
+
+    Parameters
+    ----------
+    x: np.ndarray
+        x, n samples by p variables
+    y: np.ndarray
+        y, n samples by 1
+    pred_scores: np.ndarray
+        Predictive scores, a LVs by n samples
+    ortho_scores: np.ndarray
+        Orthogonal scores, a LVs by p variables
+    pred_loadings: np.ndarray
+        Predictive loadings, a LVs by p variables
+    ortho_loadings: np.ndarray
+        Orthogonal loadings, a LVs by p variables
+    y_weights: np.ndarray
+        y weights
+    num_pc: int
+        Number of latent variables.
+
+    Returns
+    -------
+
+    """
+    cdef:
+        Py_ssize_t i, j, a, ji
+        Py_ssize_t n = x.shape[0]
+        Py_ssize_t p = x.shape[1]
+        Py_ssize_t na = <ssize_t> num_pc - 1
+        double * w = <double *> calloc(p, sizeof(double))
+        double * rec_x_c = <double *> calloc(p * n, sizeof(double))
+        double * rec_y_c = <double *> calloc(n, sizeof(double))
+        double[::1] r2x = np.zeros(num_pc, dtype=DTYPE_F)
+        double[::1] r2x_cum = np.zeros(num_pc, dtype=DTYPE_F)
+        double[::1] r2y = np.zeros(num_pc, dtype=DTYPE_F)
+        double[::1] r2y_cum = np.zeros(num_pc, dtype=DTYPE_F)
+        double[::1] cov = np.zeros(p, dtype=DTYPE_F)
+        double[::1] corr = np.zeros(p, dtype=DTYPE_F)
+        double ss_tp = 0.
+        double ssx = 0.
+        double ssy = 0.
+        double tv, s, rss, rss_a, d
+
+    # SSX and SSY
+    for i in range(n):
+        tv = 0.
+        for j in range(p):
+            tv += x[i, j] * x[i, j]
+        ssx += tv
+        ssy += y[i] * y[i]
+
+    # predictive scores and weights
+    for i in range(n):
+        s = pred_scores[na, i]
+        ss_tp += s * s
+        for j in range(p):
+            w[j] += s * x[i, j]
+
+    # covariance and correlation for assessing variable importance
+    for j in range(p):
+        cov[j] = w[j] / ss_tp
+        tv = 0.
+        for i in range(n):
+            tv += x[i, j] * x[i, j]
+        corr[j] = w[j] / sqrt(tv * ss_tp)
+
+    for a in range(num_pc):
+        # reconstruct the matrix using scores and loadings
+        ji = 0
+        rss = 0.
+        rss_a = 0.
+        for i in range(n):
+            for j in range(p):
+                tv = ortho_scores[a, i] * ortho_loadings[a, j]
+                tv += pred_scores[a, i] * pred_loadings[a, j]
+                rec_x_c[ji] += tv
+                d = x[i, j] - tv
+                rss_a += d * d
+                d = x[i, j] - rec_x_c[ji]
+                rss += d * d
+                ji += 1
+
+        r2x[a] = 1. - rss_a / ssx
+        # this is different with that shown in
+        # Multivariate Data Analysis for Omics, 2008, by Susanne Wiklund,
+        # which is the cumulative sum of r2x.
+        r2x_cum[a] = 1. - rss / ssx
+
+        # reconstruct dependent vector y
+        rss_a = 0.
+        rss = 0.
+        for i in range(n):
+            rec_y_c[i] += pred_scores[a, i] * y_weights[i]
+            d = y[i] - pred_scores[a, i] * y_weights[i]
+            rss_a += d * d
+            d = y[i] - rec_y_c[i]
+            rss += d * d
+        r2y[a] = 1. - rss_a / ssy
+        r2y_cum[a] = 1. - rss / ssy
+
+    free(w)
+    free(rec_x_c)
+    free(rec_y_c)
+
+    return (np.asarray(cov), np.asarray(corr), np.asarray(r2x),
+            np.asarray(r2x_cum), np.asarray(r2y), np.asarray(r2y_cum))

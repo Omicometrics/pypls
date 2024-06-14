@@ -69,11 +69,11 @@ class CrossValidation:
         self._ypred: typing.Optional[np.ndarray] = None
         self._Tortho: typing.Optional[np.ndarray] = None
         self._Tpred: typing.Optional[np.ndarray] = None
-        self._ssx: typing.Optional[dict] = None
-        self._ssy: typing.Optional[list] = None
-        self._pressy: typing.Optional[np.ndarray] = None
         self._n: typing.Optional[int] = None
-        self._pcv: typing.Optional[dict] = None
+        self._p: typing.Optional[int] = None
+        self._pcv: typing.Optional[np.ndarray] = None
+        self._pcv_ortho: typing.Optional[np.ndarray] = None
+        self._cv_num_vars: typing.Optional[np.ndarray] = None
         self._opt_component: typing.Optional[int] = None
         self._mis_classifications: typing.Optional[np.ndarray] = None
         self._q2: typing.Optional[np.ndarray] = None
@@ -82,8 +82,8 @@ class CrossValidation:
         self.y: typing.Optional[np.ndarray] = None
         self.groups: typing.Optional[dict] = None
         self._used_variable_index: typing.Optional[np.ndarray] = None
-        self._r2x_cum: typing.Optional[float] = None
-        self._r2y_cum: typing.Optional[float] = None
+        self._r2xcorr: typing.Optional[np.ndarray] = None
+        self._r2xyo: typing.Optional[np.ndarray] = None
         self._corr_y_perms: typing.Optional[np.ndarray] = None
         self._perm_q2: typing.Optional[np.ndarray] = None
         self._perm_err: typing.Optional[np.ndarray] = None
@@ -113,20 +113,21 @@ class CrossValidation:
         y = self._reset_y(y)
 
         if self._estimator_param == "opls":
-            q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, n_opt, n0 = kfold_cv_opls(
-                x, y, self.kfold, self._scaler_tag, self._tol, self._max_iter)
-            # Q2
+            (q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, p_p, p_o, n_vars, n_opt,
+             n0) = kfold_cv_opls(x, y, self.kfold, self._scaler_tag,
+                                 self._tol, self._max_iter)
             self._r2xcorr = r2xcorr
             self._r2xyo = r2xyo
-            self._Tpred = t_p
             self._Tortho = t_o
-            self._npc0 = n0
+            self._pcv_ortho = p_o
         else:
-            q2, no_mcs, t_p, n_opt, n0 = kfold_cv_pls(
+            q2, no_mcs, t_p, p_p, n_vars, n_opt, n0 = kfold_cv_pls(
                 x, y, self.kfold, self._scaler_tag, self._tol, self._max_iter)
 
         self._opt_component = n_opt
         self._mis_classifications = no_mcs
+        self._cv_num_vars = n_vars
+        self._pcv = p_p
         # Q2
         self._q2 = q2
         # predictive scores if OPLS is used, or scores if PLS is used
@@ -134,6 +135,7 @@ class CrossValidation:
         self._npc0 = n0
 
         self._n = x.shape[0]
+        self._p = x.shape[1]
         self._x = x
         self.y = y
 
@@ -296,7 +298,7 @@ class CrossValidation:
         """
         if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._Tortho[:, self._opt_component]
+        return self._Tortho[self._opt_component]
 
     @property
     def predictive_score(self) -> np.ndarray:
@@ -316,7 +318,7 @@ class CrossValidation:
         """
         if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._Tpred[:, self._opt_component]
+        return self._Tpred[self._opt_component]
 
     @property
     def scores(self) -> np.ndarray:
@@ -359,7 +361,7 @@ class CrossValidation:
         return self._opt_component + 1
 
     @property
-    def R2Xcorr(self) -> float:
+    def r2xcorr(self) -> float:
         """
         Returns
         -------
@@ -374,10 +376,10 @@ class CrossValidation:
         """
         if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._r2xcorr[self._opt_component]
+        return float(self._r2xcorr[self._opt_component])
 
     @property
-    def R2XYO(self) -> float:
+    def r2xyo(self) -> float:
         """
         Returns
         -------
@@ -392,10 +394,10 @@ class CrossValidation:
         """
         if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._r2xyo[self._opt_component]
+        return float(self._r2xyo[self._opt_component])
 
     @property
-    def R2X(self) -> float:
+    def r2x(self) -> float:
         """
 
         Returns
@@ -404,10 +406,10 @@ class CrossValidation:
             Modeled variation of X
 
         """
-        return self._r2x
+        return self.estimator.r2x
 
     @property
-    def R2y(self) -> float:
+    def r2y(self) -> float:
         """
 
         Returns
@@ -416,10 +418,10 @@ class CrossValidation:
             Modeled variation of y
 
         """
-        return self._r2y
+        return self.estimator.r2y
 
     @property
-    def R2X_cum(self) -> float:
+    def r2x_cum(self) -> float:
         """
         Cumulative fraction of the sum of squares explained up to the
         optimal number of principal components.
@@ -430,10 +432,10 @@ class CrossValidation:
             Cumulative fraction of the sum of squares explained
 
         """
-        return self._r2x_cum
+        return self.estimator.r2x_cum
 
     @property
-    def R2y_cum(self) -> float:
+    def r2y_cum(self) -> float:
         """
         Cumulative fraction of the sum of squares explained up to the
         optimal number of principal components.
@@ -444,7 +446,7 @@ class CrossValidation:
             Cumulative fraction of the sum of squares explained
 
         """
-        return self._r2y_cum
+        return self.estimator.r2y_cum
 
     @property
     def correlation(self) -> np.ndarray:
@@ -469,7 +471,7 @@ class CrossValidation:
         """
         if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._corr
+        return self.estimator.corr
 
     @property
     def covariance(self):
@@ -496,12 +498,12 @@ class CrossValidation:
         """
         if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._cov
+        return self.estimator.cov
 
     @property
-    def loadings_cv(self):
+    def orthogonal_loadings_cv(self) -> np.ndarray:
         """
-        Loadings from cross validation.
+        Orthogonal loadings from cross validation.
 
         Returns
         -------
@@ -516,7 +518,19 @@ class CrossValidation:
         """
         if self._estimator_param != "opls":
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return np.array(self._pcv[self._opt_component+1])
+        return self._pcv_ortho
+
+    @property
+    def loadings_cv(self) -> np.ndarray:
+        """
+        Loadings from cross validation. If OPLS / OPLS-DA is used, this
+        is the predictive loadings.
+
+        Returns
+        -------
+
+        """
+        return self._pcv
 
     @property
     def min_nmc(self) -> int:
@@ -662,47 +676,6 @@ class CrossValidation:
 
         return idx, np.ascontiguousarray(x[:, idx], dtype=np.float64)
 
-    def _split(self, y) -> typing.Iterable:
-        """
-        Split total number of n samples into training and testing data.
-
-        Parameters
-        ----------
-        y: np.ndarray
-            Number of samples
-
-        Returns
-        -------
-        iterator
-
-        """
-        n, k = y.size, self.kfold
-        groups, counts = np.unique(y, return_counts=True)
-
-        # check the number
-        if counts.min() < k and n != k:
-            raise ValueError(f"The fold number {k} is larger than the least"
-                             f" group number {counts.min()}.")
-
-        indices = np.arange(n, dtype=int)
-        # leave one out cross validation
-        if n == k:
-            for i in indices:
-                yield np.delete(indices, i), [i]
-
-        # k fold cross validation
-        else:
-            group_index, blks = [], []
-            for g, nk in zip(groups, counts):
-                group_index.append(np.where(y == g)[0])
-                blks.append(nk // k if nk % k == 0 else nk // k + 1)
-            # splitting data
-            for i in range(k):
-                trains = np.ones(n, dtype=bool)
-                for blk, idx, nk in zip(blks, group_index, counts):
-                    trains[idx[blk * i: min(blk * (i + 1), nk)]] = False
-                yield indices[trains], indices[np.logical_not(trains)]
-
     def _cal_vip(self) -> None:
         """
         Calculates variable importance in projection (VIP).
@@ -765,110 +738,8 @@ class CrossValidation:
         # fit the model
         self.estimator.fit(x_scale.copy(), y_scale.copy(), n_comp=npc)
 
-        # summary the fitting
-        self._summary_fit(x_scale, y_scale)
-
         # indices of variables used for model construction
         self._used_variable_index = val_ix
-
-    def _summary_fit(self, x, y) -> None:
-        """
-
-        Parameters
-        ----------
-        x: np.ndarray
-            scaled variable matrix.
-        y: np.ndarray
-            scaled dependent variable
-
-        Returns
-        -------
-        CrossValidation object
-
-        """
-        npc = self._opt_component + 1
-        # Calculate covariance and correlation for variable importance
-        # assessment. Only works for OPLS/OPLS-DA
-        r2x_pc: np.ndarray = np.zeros(npc, dtype=np.float64)
-        r2y_pc: np.ndarray = np.zeros(npc, dtype=np.float64)
-        ssx: float = (x ** 2).sum()
-        ssy: float = (y ** 2).sum()
-        if self._estimator_param == "opls":
-            tp = self.estimator.predictive_score(npc)
-            ss_tp = np.dot(tp, tp)
-            # loadings
-            w = np.dot(tp, x)
-            self._cov = w / ss_tp
-            self._corr = w / (np.sqrt(ss_tp) * la.norm(x, axis=0))
-
-            # reconstruct variable matrix X
-            # from orthogonal corrections.
-            o_scores = self.estimator.orthogonal_scores
-            o_loads = self.estimator.orthogonal_loadings
-            p_scores = self.estimator.predictive_scores
-            p_loads = self.estimator.predictive_loadings
-            for i in range(npc):
-                xrec = np.dot(o_scores[:, i][:, np.newaxis],
-                              o_loads[:, i][np.newaxis, :])
-                # from predictive scores
-                xrec += np.dot(p_scores[:, i][:, np.newaxis],
-                               p_loads[:, i][np.newaxis, :])
-                r2x_pc[i] = ((x - xrec) ** 2).sum() / ssx
-
-                # reconstruct dependent vector y
-                yrec = p_scores[:, i] * self.estimator.weights_y[i]
-                r2y_pc[i] = ((y - yrec) ** 2).sum() / ssy
-        else:
-            for i in range(npc):
-                xrec = np.dot(self.estimator.scores_x[:, i][:, np.newaxis],
-                              self.estimator.loadings_x[:, i][np.newaxis, :])
-                yrec = np.dot(self.estimator.scores_x[:, i][:, np.newaxis],
-                              self.estimator.weights_y[i])
-                r2x_pc[i] = ((x - xrec) ** 2).sum() / ssx
-                r2y_pc[i] = ((y - yrec) ** 2).sum() / ssy
-
-        # r2x
-        self._r2x = 1. - r2x_pc[self._opt_component]
-        # r2y
-        self._r2y = 1. - r2y_pc[self._opt_component]
-        # cumulative r2x
-        self._r2x_cum = 1. - np.prod(r2x_pc)
-        # cumulative r2y
-        self._r2y_cum = 1. - np.prod(r2y_pc)
-
-    def _summary_cv(self) -> None:
-        """
-        Summary cross validation results to calculate metrics for
-        assessing the model.
-
-        Returns
-        -------
-        CrossValidation object
-
-        """
-        # number of mis-classifications
-        _pred_class = (self._ypred > 0).astype(float)
-        nmc = ((_pred_class - self.y[:, np.newaxis]) != 0).sum(axis=0)
-        j = int(np.argmin(nmc))
-        # optimal number of components
-        self._opt_component: int = j
-        self._mis_classifications = nmc
-        # Q2
-        self._q2 = 1. - self._pressy.sum(axis=0) / self._ssy
-        # metrics for OPLS
-        if self._estimator_param == "opls":
-            _, npc = _pred_class.shape
-            # r2xcorr, r2xyo
-            r2xcorr, r2xyo = [], []
-            for k in range(1, npc+1):
-                r2xcorr.append(
-                    sum(self._ssx[k]["corr"]) / sum(self._ssx[k]["total"])
-                )
-                r2xyo.append(
-                    sum(self._ssx[k]["xyo"]) / sum(self._ssx[k]["total"])
-                )
-            self._r2xcorr = r2xcorr
-            self._r2xyo = r2xyo
 
     def _reset_y(self, y) -> np.ndarray:
         """

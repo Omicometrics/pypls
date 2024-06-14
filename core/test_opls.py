@@ -2,7 +2,6 @@ import unittest
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from .opls import correct_fit, correct_x_1d, correct_x_2d
 

@@ -1,7 +1,7 @@
 cimport cython
 
 from libc.stdlib cimport malloc, calloc, free
-from libc.math cimport fmod, fabs, sqrt
+from libc.math cimport fmod, sqrt
 
 import numpy as np
 cimport numpy as np
@@ -146,14 +146,14 @@ cdef void correct_predict(double[:, ::1] x, double[:, ::1] coefs,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-cdef int scale_xy(double[:, ::1] tt_x, double[::1] tt_y, int ntrains, int tag):
+cdef int scale_xy(double[:, ::1] tt_x, double[::1] tt_y, int ntrains,
+                  int tag, int[::1] sel_var_index):
 
     cdef:
         Py_ssize_t i, j, a
         Py_ssize_t n = tt_x.shape[0]
         Py_ssize_t p = tt_x.shape[1]
         Py_ssize_t pj = 0
-        int * sel_ix = <int *> malloc(p * sizeof(int))
         double * minus_arr = <double *> malloc(p * sizeof(double))
         double * normalizer_arr = <double *> malloc(p * sizeof(double))
         double dr = <double> ntrains
@@ -173,7 +173,7 @@ cdef int scale_xy(double[:, ::1] tt_x, double[::1] tt_y, int ntrains, int tag):
                 if tv < tm:
                     tm = tv
             if ts - tm > 0.:
-                sel_ix[pj] = <int> j
+                sel_var_index[pj] = <int> j
                 minus_arr[pj] = tm
                 normalizer_arr[pj] = ts
                 pj += 1
@@ -198,7 +198,7 @@ cdef int scale_xy(double[:, ::1] tt_x, double[::1] tt_y, int ntrains, int tag):
             tm /= dr
             ts = sqrt(tv / dr - tm * tm)
             if ts > 0.00000001:
-                sel_ix[pj] = <int> j
+                sel_var_index[pj] = <int> j
                 minus_arr[pj] = tm
                 normalizer_arr[pj] = ts
                 pj += 1
@@ -221,17 +221,16 @@ cdef int scale_xy(double[:, ::1] tt_x, double[::1] tt_y, int ntrains, int tag):
     if tag == 1:
         for i in range(n):
             for j in range(pj):
-                a = <ssize_t> sel_ix[j]
+                a = <ssize_t> sel_var_index[j]
                 tt_x[i, j] = tt_x[i, a] - minus_arr[j]
             tt_y[i] -= minus_y
     else:
         for i in range(n):
             for j in range(pj):
-                a = <ssize_t> sel_ix[j]
+                a = <ssize_t> sel_var_index[j]
                 tt_x[i, j] = (tt_x[i, a] - minus_arr[j]) / normalizer_arr[j]
             tt_y[i] = (tt_y[i] - minus_y) / norm_y
 
-    free(sel_ix)
     free(minus_arr)
     free(normalizer_arr)
 
@@ -272,7 +271,7 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
 
     """
     cdef:
-        Py_ssize_t i, j, a, j_cv
+        Py_ssize_t i, j, a, j_cv, jv
         Py_ssize_t n = x.shape[0]
         Py_ssize_t p = x.shape[1]
         Py_ssize_t dm = min(n, p)
@@ -280,6 +279,7 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         int kr, nsel, n_pc, n_opt
         int[::1] test_ix = np.zeros(n, dtype=DTYPE)
         int[::1] no_mis_class = np.zeros(dm, dtype=DTYPE)
+        int[::1] sel_var_ix = np.zeros(p, dtype=DTYPE)
         double[:, ::1] tt_x = np.zeros((n, p), dtype=DTYPE_F)
         double[:, ::1] tr_t_ortho = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] tr_p_ortho = np.zeros((dm, p), dtype=DTYPE_F)
@@ -293,6 +293,8 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double[:, ::1] tr_coefs = np.zeros((dm, p), dtype=DTYPE_F)
         double[:, ::1] cv_t_ortho = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_t_p = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] cv_p_p = np.zeros((dm * k, p), dtype=DTYPE_F)
+        double[:, ::1] cv_p_o = np.zeros((dm * k, p), dtype=DTYPE_F)
         double[:, ::1] cv_pred_y = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] ssx_corr = np.zeros((k, dm), dtype=DTYPE_F)
         double[:, ::1] ssx_ortho = np.zeros((k, dm), dtype=DTYPE_F)
@@ -319,7 +321,7 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         kr = get_train_tests(x, y, cv_gix, <double> j_cv, tt_x, tt_y, test_ix)
 
         # scaling
-        nsel = scale_xy(tt_x, tt_y, kr, pre_tag)
+        nsel = scale_xy(tt_x, tt_y, kr, pre_tag, sel_var_ix)
         # SSX and SSY of testing data
         for i in range(kr, n):
             for j in range(nsel):
@@ -342,8 +344,12 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
 
         # coefficients of various components
         for a in range(n_pc):
+            i = a * k + j_cv
             for j in range(nsel):
                 tr_coefs[a, j] = tr_w_y[a] * tr_var_xy[j]
+                jv = <ssize_t> sel_var_ix[j]
+                cv_p_p[i, jv] = tr_p_p[a, j]
+                cv_p_o[i, jv] = tr_p_ortho[a, j]
 
         # correction, prediction and scores
         correct_predict(tmp_x[kr:][:, :nsel], tr_coefs, tr_w_ortho, tr_p_ortho,
@@ -380,9 +386,12 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         r2xcorr[a] = tc / ssx
         q2[a] = 1. - pressy[a] / ssy
 
+    a = n_opt * k
+
     return (np.asarray(q2[:n_pc]), np.asarray(r2xyo[:n_pc]),
             np.asarray(r2xcorr[:n_pc]), np.asarray(no_mis_class[:n_pc]),
             np.asarray(cv_t_ortho[:n_pc]), np.asarray(cv_t_p[:n_pc]),
+            np.asarray(cv_p_p[a: a + k]), np.asarray(cv_p_o[a: a + k]),
             n_opt, val_npc)
 
 
@@ -420,7 +429,7 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
 
     """
     cdef:
-        Py_ssize_t i, j, a, j_cv, b
+        Py_ssize_t i, j, a, j_cv, b, jk, jb
         Py_ssize_t n = x.shape[0]
         Py_ssize_t p = x.shape[1]
         Py_ssize_t dm = min(n, p)
@@ -428,6 +437,7 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         int kr, nsel, n_pc, n_opt
         int[::1] test_ix = np.zeros(n, dtype=DTYPE)
         int[::1] no_mis_class = np.zeros(dm, dtype=DTYPE)
+        int[::1] sel_var_ix = np.zeros(p, dtype=DTYPE)
         double * tmp_pc = <double *> malloc(dm * sizeof(double))
         double * tmp_coefs = <double *> malloc(p * sizeof(double))
         double * tmp_press = <double *> calloc(dm, sizeof(double))
@@ -437,6 +447,7 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double[:, ::1] tr_w = np.zeros((dm, p), dtype=DTYPE_F)
         double[:, ::1] cv_pred_y = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_t = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] cv_p = np.zeros((dm * k, p), dtype=DTYPE_F)
         double[::1] tr_w_y = np.zeros(dm, dtype=DTYPE_F)
         double[::1] tt_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] q2 = np.zeros(dm, dtype=DTYPE_F)
@@ -453,7 +464,7 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         # extract training and testing data
         kr = get_train_tests(x, y, cv_gix, <double> j_cv, tt_x, tt_y, test_ix)
         # scaling
-        nsel = scale_xy(tt_x, tt_y, kr, pre_tag)
+        nsel = scale_xy(tt_x, tt_y, kr, pre_tag, sel_var_ix)
 
         # SSY of testing data
         for i in range(kr, n):
@@ -475,11 +486,14 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
                     tv += inv_pw[i, j] * tr_w_y[j]
                 tmp_pc[i] = tv
 
+            jk = a * k + j_cv
             for j in range(nsel):
                 tc = 0.
                 for i in range(b):
                     tc += tr_w[i, j] * tmp_pc[i]
                 tmp_coefs[j] = tc
+                jb = <ssize_t> sel_var_ix[j]
+                cv_p[jk, jb] = tr_p_p[a, j]
 
             # prediction using the coefficients
             for i in range(n - kr):
@@ -506,5 +520,8 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
     free(tmp_pc)
     free(tmp_coefs)
 
-    return np.asarray(q2[:n_pc]), np.asarray(no_mis_class[:n_pc]), np.asarray(cv_t[:n_pc]), n_opt, val_npc
+    a = n_opt * k
+
+    return (np.asarray(q2[:n_pc]), np.asarray(no_mis_class[:n_pc]),
+            np.asarray(cv_t[:n_pc]), np.asarray(cv_p[a: a + k]), n_opt, val_npc)
 
