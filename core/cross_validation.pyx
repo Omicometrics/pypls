@@ -525,3 +525,116 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
     return (np.asarray(q2[:n_pc]), np.asarray(no_mis_class[:n_pc]),
             np.asarray(cv_t[:n_pc]), np.asarray(cv_p[a: a + k]), n_opt, val_npc)
 
+
+@cython.wraparound(False)
+@cython.boundscheck(False)
+@cython.cdivision(True)
+cdef kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
+                      int pre_tag, int alg_tag, double tol, int max_iter):
+    """
+    K-fold cross validated prediction.
+
+    """
+    cdef:
+        Py_ssize_t i, j, a, j_cv, jv, ji, jk
+        Py_ssize_t n = x.shape[0]
+        Py_ssize_t p = x.shape[1]
+        Py_ssize_t pc_k = <ssize_t> num_pc - 1
+        Py_ssize_t dm = min(n, p)
+        int val_npc = <int> dm
+        int kr, nsel, n_pc, n_opt
+        int[::1] test_ix = np.zeros(n, dtype=DTYPE)
+        int[::1] no_mis_class = np.zeros(dm, dtype=DTYPE)
+        int[::1] sel_var_ix = np.zeros(p, dtype=DTYPE)
+        double * coefs = <double *> malloc(p * sizeof(double))
+        double[:, ::1] tt_x = np.zeros((n, p), dtype=DTYPE_F)
+        double[:, ::1] tr_t_ortho = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] tr_p_ortho = np.zeros((dm, p), dtype=DTYPE_F)
+        double[:, ::1] tr_w_ortho = np.zeros((dm, p), dtype=DTYPE_F)
+        double[:, ::1] tr_t_p = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] tr_p_p = np.zeros((dm, p), dtype=DTYPE_F)
+        double[:, ::1] tr_w = np.zeros((dm, p), dtype=DTYPE_F)
+        double[:, ::1] tmp_x = np.zeros((n, p), dtype=DTYPE_F)
+        double[:, ::1] tmp_pred_tp = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] tmp_pred_y = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] tr_coefs = np.zeros((dm, p), dtype=DTYPE_F)
+        double[:, ::1] cv_t_ortho = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] cv_t_p = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] cv_p_p = np.zeros((dm * k, p), dtype=DTYPE_F)
+        double[:, ::1] cv_p_o = np.zeros((dm * k, p), dtype=DTYPE_F)
+        double[:, ::1] cv_pred_y = np.zeros((dm, n), dtype=DTYPE_F)
+        double[:, ::1] ssx_corr = np.zeros((k, dm), dtype=DTYPE_F)
+        double[:, ::1] ssx_ortho = np.zeros((k, dm), dtype=DTYPE_F)
+        double[::1] tmp_corr_tp = np.zeros(n, dtype=DTYPE_F)
+        double[::1] tr_w_y = np.zeros(dm, dtype=DTYPE_F)
+        double[::1] tr_var_xy = np.zeros(p, dtype=DTYPE_F)
+        double[::1] tt_y = np.zeros(n, dtype=DTYPE_F)
+        double[::1] q2 = np.zeros(dm, dtype=DTYPE_F)
+        double[::1] r2xcorr = np.zeros(dm, dtype=DTYPE_F)
+        double[::1] r2xyo = np.zeros(dm, dtype=DTYPE_F)
+        double[::1] tmp_y = np.zeros(n, dtype=DTYPE_F)
+        double[::1] cv_gix = np.zeros(n, dtype=DTYPE_F)
+        double pressy = 0.
+        double ssy = 0.
+        double ik = <double> k
+        double tv, tc, d
+
+    for i in range(n):
+        cv_gix[i] = fmod(<double> i, ik)
+
+    if alg_tag == 1:
+        # OPLS-DA
+        for j_cv in range(k):
+            # extract training and testing data
+            kr = get_train_tests(x, y, cv_gix, <double> j_cv, tt_x, tt_y, test_ix)
+
+            # scaling
+            nsel = scale_xy(tt_x, tt_y, kr, pre_tag, sel_var_ix)
+            for i in range(kr, n):
+                ssy += tt_y[i] * tt_y[i]
+            correct_fit_(tmp_x[:kr][:, :nsel], tmp_y[:kr], num_pc, tol, max_iter,
+                         tr_t_ortho, tr_p_ortho, tr_w_ortho, tr_t_p, tr_w_y,
+                         tr_p_p, tr_w, tr_var_xy)
+
+            # correction
+            for a in range(num_pc):
+                for i in range(kr, n):
+                    tv = 0.
+                    for j in range(nsel):
+                        tv += tt_x[i, j] * tr_w_ortho[a, j]
+                    # update data matrix by removing orthogonal components
+                    for j in range(nsel):
+                        tt_x[i, j] -= tv * tr_p_ortho[a, j]
+
+            # coefficients
+            for j in range(nsel):
+                coefs[j] = tr_w_y[pc_k] * tr_var_xy[j]
+
+            # save the parameters for model quality assessments
+            # Orthogonal and predictive scores
+            for i in range(kr, n):
+                ty = 0.
+                for j in range(nsel):
+                    ty += tt_x[i, j] * coefs[j]
+                d = ty - tt_y[i]
+                pressy += d * d
+
+            # reset the values
+            tr_var_xy[:] = 0.
+
+        # summary the cross validation results
+        for a in range(n_pc):
+            tv = 0.
+            tc = 0.
+            for j_cv in range(k):
+                tv += ssx_ortho[j_cv, a]
+                tc += ssx_corr[j_cv, a]
+            r2xyo[a] = tv / ssx
+            r2xcorr[a] = tc / ssx
+            q2[a] = 1. - pressy[a] / ssy
+
+    return (np.asarray(q2[:n_pc]), np.asarray(r2xyo[:n_pc]),
+            np.asarray(r2xcorr[:n_pc]), np.asarray(no_mis_class[:n_pc]),
+            np.asarray(cv_t_ortho[:n_pc]), np.asarray(cv_t_p[:n_pc]),
+            np.asarray(cv_p_p[a: a + k]), np.asarray(cv_p_o[a: a + k]),
+            n_opt, val_npc)

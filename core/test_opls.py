@@ -31,6 +31,9 @@ class TestOpls(unittest.TestCase):
         self.assertTrue(np.allclose(w_p[0], w_p_t, atol=0.01))
         self.assertTrue(np.allclose(p_p[0], p_p_t, atol=0.01))
 
+        coefs_t = np.fromiter([-0.41, -0.82], dtype=np.float64)
+        self.assertTrue(np.allclose(coefs, coefs_t, atol=0.01))
+
     def test_correct_x_1d(self):
         t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
             self.x.copy(), self.y, 1, 1e-6, 1000)
