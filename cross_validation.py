@@ -6,7 +6,7 @@ import typing
 import numpy as np
 import numpy.linalg as la
 
-from core import kfold_cv_opls, kfold_cv_pls
+from core import kfold_cv_opls, kfold_cv_pls, kfold_prediction
 
 import pretreatment
 from pls import PLS
@@ -196,9 +196,8 @@ class CrossValidation:
             raise ValueError("Expected large positive integer >= 20, "
                              "got {}.".format(num_perms))
 
-        is_opls = self._estimator_param == "opls"
-
-        estimator, scaler = self._create_scaler_estimator()
+        atag: int = 1 if self._estimator_param == "opls" else 2
+        k: int = self.kfold
 
         # do permutation test
         x = self._x[:, self._used_variable_index]
@@ -208,7 +207,6 @@ class CrossValidation:
         # optimal component number
         npc: int = self._opt_component + 1
         n: int = self.y.size
-        pred_y: np.ndarray = np.zeros(n, dtype=np.float64)
 
         rnd_generator = np.random.default_rng()
 
@@ -219,36 +217,11 @@ class CrossValidation:
                            desc="Calculating permuted metrics"):
             # randomize labels
             ix = rnd_generator.permutation(n)
-            rnd_y = self.y[ix]
-            ssy: float = 0.
-            ssey: float = 0.
-            # fit the model using cross validation
-            for train_index, test_index in self._split(rnd_y):
-                xtr, xte = x[train_index], x[test_index]
-                ytr, yte = rnd_y[train_index], rnd_y[test_index]
-
-                # scale matrix
-                xtr_scale = scaler.fit(xtr)
-                xte_scale = scaler.scale(xte)
-                ytr_scale = scaler.fit(ytr)
-                yte_scale = scaler.scale(yte)
-
-                # variances
-                ssy += (yte_scale ** 2).sum()
-                # fitting the model
-                estimator.fit(xtr_scale.copy(), ytr_scale, n_comp=npc)
-                # prediction
-                if is_opls:
-                    xc = estimator.correct(xte_scale.copy(), n_component=npc)
-                    yp = estimator.predict(xc, n_component=npc)
-                else:
-                    yp = estimator.predict(xte_scale)
-                pred_y[test_index] = yp
-                ssey += ((yp - yte_scale) ** 2).sum()
-
-            pred_cls = (pred_y > 0.).astype(int)
-            perm_err[i] = np.count_nonzero((pred_cls - rnd_y) != 0) / n
-            perm_q2[i] = 1. - ssey / ssy
+            ry = self.y[ix]
+            q2, err = kfold_prediction(x, ry, k, npc, self._scaler_tag,
+                                       atag, self._tol, self._max_iter)
+            perm_err[i] = err
+            perm_q2[i] = q2
             perm_corr[i] = abs(((y_center * y_center[ix]).sum()) / ssy_c)
 
         self._perm_q2 = perm_q2
@@ -773,6 +746,9 @@ class CrossValidation:
         for i, label in enumerate(labels):
             y_reset[y == label] = i
             groups[i] = label if isinstance(label, str) else str(int(label))
+
+        y_reset[y_reset == 0.] = -1.
+        groups[-1] = groups[0]
 
         self.groups = groups
         return y_reset
