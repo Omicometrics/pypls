@@ -198,6 +198,13 @@ cdef void correct_2d_(double[:, ::1] x, double[:, ::1] wortho,
     free(tmp_t)
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef vip_():
+    cdef:
+        Py_ssize_t i, j
+
+
 @cython.wraparound(False)
 @cython.boundscheck(False)
 def correct_fit(double[:, ::1] x, double[::1] y, int num_comp, double tol, int max_iter):
@@ -350,9 +357,7 @@ def summary_opls(double[:, ::1] x, double[::1] y, double[:, ::1] pred_scores,
         double * rec_x_c = <double *> calloc(p * n, sizeof(double))
         double * rec_y_c = <double *> calloc(n, sizeof(double))
         double[::1] r2x = np.zeros(num_pc, dtype=DTYPE_F)
-        double[::1] r2x_cum = np.zeros(num_pc, dtype=DTYPE_F)
         double[::1] r2y = np.zeros(num_pc, dtype=DTYPE_F)
-        double[::1] r2y_cum = np.zeros(num_pc, dtype=DTYPE_F)
         double[::1] cov = np.zeros(p, dtype=DTYPE_F)
         double[::1] corr = np.zeros(p, dtype=DTYPE_F)
         double ss_tp = 0.
@@ -387,39 +392,26 @@ def summary_opls(double[:, ::1] x, double[::1] y, double[:, ::1] pred_scores,
         # reconstruct the matrix using scores and loadings
         ji = 0
         rss = 0.
-        rss_a = 0.
         for i in range(n):
             for j in range(p):
-                tv = ortho_scores[a, i] * ortho_loadings[a, j]
-                tv += pred_scores[a, i] * pred_loadings[a, j]
-                rec_x_c[ji] += tv
-                d = x[i, j] - tv
-                rss_a += d * d
-                d = x[i, j] - rec_x_c[ji]
+                # current Tortho * Portho^T
+                rec_x_c[ji] += ortho_scores[a, i] * ortho_loadings[a, j]
+                tv = pred_scores[a, i] * pred_loadings[a, j]
+                d = x[i, j] - rec_x_c[ji] - tv
                 rss += d * d
                 ji += 1
-
-        r2x[a] = 1. - rss_a / ssx
-        # this is different with that shown in
-        # Multivariate Data Analysis for Omics, 2008, by Susanne Wiklund,
-        # which is the cumulative sum of r2x.
-        r2x_cum[a] = 1. - rss / ssx
+        r2x[a] = 1. - rss / ssx
 
         # reconstruct dependent vector y
-        rss_a = 0.
         rss = 0.
         for i in range(n):
             rec_y_c[i] += pred_scores[a, i] * y_weights[i]
-            d = y[i] - pred_scores[a, i] * y_weights[i]
-            rss_a += d * d
             d = y[i] - rec_y_c[i]
             rss += d * d
-        r2y[a] = 1. - rss_a / ssy
-        r2y_cum[a] = 1. - rss / ssy
+        r2y[a] = 1. - rss / ssy
 
     free(w)
     free(rec_x_c)
     free(rec_y_c)
 
-    return (np.asarray(cov), np.asarray(corr), np.asarray(r2x),
-            np.asarray(r2x_cum), np.asarray(r2y), np.asarray(r2y_cum))
+    return np.asarray(cov), np.asarray(corr), np.asarray(r2x), np.asarray(r2y)

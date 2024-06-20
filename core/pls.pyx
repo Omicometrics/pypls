@@ -76,7 +76,7 @@ cdef void vip_(double[:, ::1] w, double[:, ::1] t, double[::1] c, double[:, ::1]
         double * w_weights = <double *> calloc(p, sizeof(double))
         double * yrec = <double *> malloc(n * sizeof(double))
         double pd = <double> p
-        double ssy, ssy_nc, wk
+        double ssy, ssy_nc
 
     ssy = 0.
     for nc in range(ncomp):
@@ -224,8 +224,8 @@ def summary_pls(double[:, ::1] x, double[::1] y, double[:, ::1] scores,
                 d = x[i, j] - rec_x[ji]
                 rss += d * d
                 ji += 1
-        r2x[a] = 1. - rss_a / ssx
-        r2x_cum[a] = 1. - rss / ssx
+        r2x[a] = 1. - rss / ssx
+        r2x_cum[a] = 1. - rss_a / ssx
 
         rss = 0.
         rss_a = 0.
@@ -238,6 +238,10 @@ def summary_pls(double[:, ::1] x, double[::1] y, double[:, ::1] scores,
             rss += d * d
         r2y[a] = 1. - rss_a / ssy
         r2y_cum[a] = 1. - rss / ssy
+
+    for i in range(1, num_pc):
+        r2x_cum[i] += r2x_cum[i - 1]
+        r2y_cum[i] += r2y_cum[i - 1]
 
     free(rec_x)
     free(rec_y)

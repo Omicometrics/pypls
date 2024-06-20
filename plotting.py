@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpl_patches
 from scipy import stats
-from typing import Optional
+from typing import Optional, Tuple
+from cross_validation import CrossValidation
 
 
 class Plots:
@@ -18,13 +19,14 @@ class Plots:
         Cross validation model constructed in cross_validation module.
 
     """
-    def __init__(self, cvmodel):
+    def __init__(self, cvmodel: CrossValidation):
         self._model = cvmodel
 
     def plot_scores(self,
                     save_plot=False,
                     file_name=None,
-                    return_scores=False) -> Optional[None]:
+                    return_scores=False)\
+            -> Optional[Tuple[np.ndarray, np.ndarray]]:
         """
         Plots scores. If OPLS/OPLS-DA is specified, the score plot for
         OPLS/OPLS-DA is used, i.e., the first component of orthogonal
@@ -66,7 +68,7 @@ class Plots:
 
         y, groups = self._model.y, self._model.groups
         # plot the figure
-        _ = plt.plot(tp1[y == 0], tp2[y == 0], "o", c="r", label=groups[0])
+        _ = plt.plot(tp1[y == -1], tp2[y == -1], "o", c="r", label=groups[-1])
         _ = plt.plot(tp1[y == 1], tp2[y == 1], "^", c="b", label=groups[1])
         # set up axis limits
         xlim, ylim = plt.xlim(), plt.ylim()

@@ -28,7 +28,6 @@ cdef int get_opt_pcs(double[:, ::1] pred_y, double[::1] y, int npc,
         int nt = <int> n
         int nk, nj
         int r = nt
-        double d
 
     for a in range(npc):
         nj = 0
@@ -183,8 +182,6 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
             2 for pareto scaling.
             3 for autoscaling.
             4 for min-max scaling.
-    alg_tag: int
-        Tag for the algorithm.
     tol: double
         Tolerance for NIPALS algorithm for PLS and OPLS.
     max_iter: int
@@ -235,7 +232,7 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double ssx = 0.
         double ssy = 0.
         double ik = <double> k
-        double tv, tc, d, ssy_k
+        double tv, tc, d
 
     for i in range(n):
         cv_gix[i] = fmod(<double> i, ik)
@@ -308,6 +305,7 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
             tc += ssx_corr[j_cv, a]
         r2xyo[a] = tv / ssx
         r2xcorr[a] = tc / ssx
+        # overall Q2
         q2[a] = 1. - pressy[a] / ssy
 
     a = n_opt * k
@@ -417,15 +415,14 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
                 cv_p[jk, jb] = tr_p_p[a, j]
 
             # prediction using the coefficients
-            for i in range(n - kr):
+            for i in range(kr, n):
                 tv = 0.
                 tc = 0.
-                b = <ssize_t> kr + i
                 for j in range(nsel):
-                    tv += tmp_coefs[j] * tt_x[b, j]
-                    tc += tr_w[a, j] * tt_x[b, j]
-                d = tt_y[b] - tv
-                b = <ssize_t> test_ix[i]
+                    tv += tmp_coefs[j] * tt_x[i, j]
+                    tc += tr_w[a, j] * tt_x[i, j]
+                d = tt_y[i] - tv
+                b = <ssize_t> test_ix[i - kr]
                 cv_pred_y[a, b] = tv
                 cv_t[a, b] = tc
                 # PRESS
@@ -498,6 +495,7 @@ def kfold_cv_pls_reg(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double[:, ::1] cv_t = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_p = np.zeros((dm * k, p), dtype=DTYPE_F)
         double[::1] cv_q2 = np.zeros(dm, dtype=DTYPE_F)
+        double[::1] cv_q2_2 = np.zeros(dm, dtype=DTYPE_F)
         double[::1] cv_pred_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] cv_rmse = np.zeros(dm, dtype=DTYPE_F)
         double[::1] tr_w_y = np.zeros(dm, dtype=DTYPE_F)
@@ -584,10 +582,10 @@ def kfold_cv_pls_reg(double[:, ::1] x, double[::1] y, int k, int pre_tag,
     for i in range(n):
         cv_pred_y[i] = pred_y[n_opt, i]
 
+    a = n_opt * k
+
     free(tmp_pc)
     free(tmp_coefs)
-
-    a = n_opt * k
 
     return (np.asarray(cv_pred_y), np.asarray(cv_q2[:val_npc]),
             np.asarray(cv_t[:val_npc]), np.asarray(cv_p[a: a + k]),
@@ -699,7 +697,7 @@ def kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
     d = 0.
     for i in range(n):
         # y is -1 or 1
-        if (pred_y[i] >= 0. and y[i] < 0.) or (pred_y[i] < 0. and y[i] > 0.):
+        if (pred_y[i] >= 0. > y[i]) or (pred_y[i] < 0. < y[i]):
             d += 1.
 
     free(coefs)

@@ -101,7 +101,7 @@ class OPLS:
             x.copy(), y, npc, self.tol, self.max_iter)
 
         # get the statistics
-        cov, corr, r2x, r2x_cum, r2y, r2y_cum = summary_opls(
+        cov, corr, r2x, r2y = summary_opls(
             x, y, t_p, t_o, p_p, p_o, w_y, n_comp)
 
         self._Tortho = t_o
@@ -122,9 +122,9 @@ class OPLS:
         self.cov = cov
         self.corr = corr
         self.r2x = r2x
-        self.r2x_cum = r2x_cum
+        self.r2x_cum = r2x
         self.r2y = r2y
-        self.r2y_cum = r2y_cum
+        self.r2y_cum = r2y
 
         self.npc = npc
 
