@@ -5,11 +5,11 @@ import collections
 import typing
 import numpy as np
 
-from core import kfold_cv_opls, kfold_cv_pls, kfold_prediction
+from .core import kfold_cv_opls, kfold_cv_pls, kfold_prediction
 
-import pretreatment
-from pls import PLS
-from opls import OPLS
+from . import pretreatment
+from .pls import PLS
+from .opls import OPLS
 
 import tqdm
 

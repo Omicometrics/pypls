@@ -1,4 +1,5 @@
 from setuptools import setup
+import os
 
 from Cython.Build import cythonize
 import numpy as np
@@ -12,11 +13,12 @@ setup(
     author="Dong Nai-ping",
     author_email="naiping.dong@hotmail.com",
     packages=[
-        "core"
+        "pypls",
+        "pypls.core"
     ],
     ext_modules=cythonize(
         [
-            "core/*.pyx"
+            os.path.join(PACKAGE_DIR, "core/*.pyx")
         ],
         compiler_directives={
             "language_level": "3",

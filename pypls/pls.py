@@ -2,7 +2,7 @@ import numpy as np
 
 from typing import Optional
 
-from core import pls_c, pls_vip, summary_pls
+from .core import pls_c, pls_vip, summary_pls
 
 
 class PLS:

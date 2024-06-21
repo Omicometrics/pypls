@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpl_patches
 from scipy import stats
 from typing import Optional, Tuple
-from cross_validation import CrossValidation
+
+from .cross_validation import CrossValidation
 
 
 class Plots:
