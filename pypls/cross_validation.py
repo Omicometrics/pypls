@@ -58,7 +58,8 @@ class CrossValidation:
         self._tol: float = tol
         self._max_iter: int = max_iter
         self._scaler_param: str = scaler
-        self._estimator_param: str = estimator
+        self.estimator_name: str = estimator
+        self.use_opls: bool = estimator == "opls"
         # estimator
         f_estimator, f_scaler = self._create_scaler_estimator()
         self.estimator = f_estimator
@@ -71,6 +72,7 @@ class CrossValidation:
         self._pcv: typing.Optional[np.ndarray] = None
         self._pcv_ortho: typing.Optional[np.ndarray] = None
         self._cv_num_vars: typing.Optional[np.ndarray] = None
+        self._cv_preds: typing.Optional[np.ndarray] = None
         self._opt_component: typing.Optional[int] = None
         self._mis_classifications: typing.Optional[np.ndarray] = None
         self._q2: typing.Optional[np.ndarray] = None
@@ -109,22 +111,22 @@ class CrossValidation:
         # the labels in y
         y = self._reset_y(y)
 
-        if self._estimator_param == "opls":
-            (q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, p_p, p_o, n_vars, n_opt,
-             n0) = kfold_cv_opls(x, y, self.kfold, self._scaler_tag,
-                                 self._tol, self._max_iter)
+        if self.use_opls:
+            (pred_y, q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, p_p, p_o,
+             n_opt, n0) = kfold_cv_opls(x, y, self.kfold, self._scaler_tag,
+                                        self._tol, self._max_iter)
             self._r2xcorr = r2xcorr
             self._r2xyo = r2xyo
             self._Tortho = t_o
             self._pcv_ortho = p_o
         else:
-            q2, no_mcs, t_p, p_p, n_vars, n_opt, n0 = kfold_cv_pls(
+            pred_y, q2, no_mcs, t_p, p_p, n_opt, n0 = kfold_cv_pls(
                 x, y, self.kfold, self._scaler_tag, self._tol, self._max_iter)
 
         self._opt_component = n_opt
         self._mis_classifications = no_mcs
-        self._cv_num_vars = n_vars
         self._pcv = p_p
+        self._cv_preds = pred_y
         # Q2
         self._q2 = q2
         # predictive scores if OPLS is used, or scores if PLS is used
@@ -165,7 +167,7 @@ class CrossValidation:
         npc = self._opt_component + 1
         # scale the matrix
         x = self.scaler.scale(x[:, self._used_variable_index])
-        if self._estimator_param == "opls":
+        if self.use_opls:
             x = self.estimator.correct(x.copy(), n_component=npc)
             return self.estimator.predict(
                 x, n_component=npc, return_scores=return_scores
@@ -193,7 +195,7 @@ class CrossValidation:
             raise ValueError("Expected large positive integer >= 20, "
                              "got {}.".format(num_perms))
 
-        atag: int = 1 if self._estimator_param == "opls" else 2
+        atag: int = 1 if self.use_opls else 2
         k: int = self.kfold
 
         # do permutation test
@@ -266,7 +268,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._Tortho[self._opt_component]
 
@@ -286,7 +288,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._Tpred[self._opt_component]
 
@@ -301,7 +303,7 @@ class CrossValidation:
             otherwise is the scores of X
 
         """
-        if self._estimator_param == "opls":
+        if self.use_opls:
             return self.predictive_score
         else:
             return self.estimator.scores_x
@@ -344,7 +346,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return float(self._r2xcorr[self._opt_component])
 
@@ -362,7 +364,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return float(self._r2xyo[self._opt_component])
 
@@ -439,7 +441,7 @@ class CrossValidation:
         2008, 80, 115-122.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self.estimator.corr
 
@@ -466,7 +468,7 @@ class CrossValidation:
         2008, 80, 115-122.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self.estimator.cov
 
@@ -486,7 +488,7 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
         return self._pcv_ortho
 
@@ -646,21 +648,20 @@ class CrossValidation:
 
         return idx, np.ascontiguousarray(x[:, idx], dtype=np.float64)
 
-    def _create_optimal_model(self, x, y) -> None:
+    def _create_optimal_model(self, x: np.ndarray, y: np.ndarray) -> None:
         """
         Create final model based on the optimal number of components.
         """
         val_ix, x = self._check_x(x)
 
         # scale data matrix
-        y_scale = self.scaler.fit(y)
         x_scale = self.scaler.fit(x)
 
         # optimal component number
         npc = self._opt_component+1
 
         # fit the model
-        self.estimator.fit(x_scale.copy(), y_scale.copy(), n_comp=npc)
+        self.estimator.fit(x_scale.copy(), y.copy(), npc)
 
         # indices of variables used for model construction
         self._used_variable_index = val_ix
@@ -712,7 +713,7 @@ class CrossValidation:
         -------
 
         """
-        if self._estimator_param == "pls":
+        if not self.use_opls:
             return PLS(), pretreatment.Scaler(scaler=self._scaler_param)
-        if self._estimator_param == "opls":
+        if self.use_opls:
             return OPLS(), pretreatment.Scaler(scaler=self._scaler_param)

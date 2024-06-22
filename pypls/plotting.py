@@ -58,7 +58,7 @@ class Plots:
         None
 
         """
-        if self._model.estimator_id == "opls":
+        if self._model.use_opls:
             tp1 = self._model.predictive_score
             tp2 = self._model.orthogonal_score
             xlabel, ylabel = "$t_p$", "$t_o$"
@@ -127,7 +127,7 @@ class Plots:
         2008, 80, 115-122.
 
         """
-        if self._model.estimator_id != "opls":
+        if not self._model.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
 
         # covariance and correlations
@@ -187,12 +187,16 @@ class Plots:
         # mean loadings
         loading_mean = self._model.loadings_cv.mean(axis=0)
         loading_std = self._model.loadings_cv.std(axis=0)
+        # unzero mean and standard deviation
+        val_ix: np.ndarray = (loading_mean == 0.) & (loading_std == 0.)
+        loading_mean = loading_mean[~val_ix]
+        loading_std = loading_std[~val_ix]
         # critical value
         t_critic = stats.t.ppf(1 - (alpha / 2), self._model.kfold - 1)
         # jackknife confidence interval
         loading_intervals = loading_std * t_critic
         # sort loading values
-        sort_ix = np.argsort(loading_mean)
+        sort_ix = loading_mean.argsort()
 
         # plot with bar error
         errorbar_fmt = {"linewidth": 0.8, "linestyle": "-"}
