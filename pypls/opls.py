@@ -61,6 +61,7 @@ class OPLS:
         self.r2y_cum: Optional[np.ndarray] = None
         # total number of components
         self.npc: Optional[int] = None
+        self.r2: Optional[float] = None
         self.tol = tol
         self.max_iter = max_iter
 
@@ -97,7 +98,7 @@ class OPLS:
         if n_comp is not None and n_comp < npc:
             npc = n_comp
 
-        t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
+        yp, t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
             x.copy(), y, npc, self.tol, self.max_iter)
 
         # get the statistics
@@ -125,6 +126,7 @@ class OPLS:
         self.r2x_cum = r2x
         self.r2y = r2y
         self.r2y_cum = r2y
+        self.r2 = 1. - ((yp - y) ** 2).sum() / ((yp - yp.mean()) ** 2).sum()
 
         self.npc = npc
 

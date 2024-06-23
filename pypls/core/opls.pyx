@@ -232,6 +232,7 @@ def correct_fit(double[:, ::1] x, double[::1] y, int num_comp, double tol, int m
         Py_ssize_t i, j
         Py_ssize_t n = x.shape[0]
         Py_ssize_t p = x.shape[1]
+        Py_ssize_t pc_k = <ssize_t> num_comp - 1
         double[:, ::1] tortho = np.zeros((num_comp, n), dtype=DTYPE_F)
         double[:, ::1] portho = np.zeros((num_comp, p), dtype=DTYPE_F)
         double[:, ::1] wortho = np.zeros((num_comp, p), dtype=DTYPE_F)
@@ -239,6 +240,7 @@ def correct_fit(double[:, ::1] x, double[::1] y, int num_comp, double tol, int m
         double[:, ::1] wpred = np.zeros((num_comp, p), dtype=DTYPE_F)
         double[:, ::1] ppred = np.zeros((num_comp, p), dtype=DTYPE_F)
         double[:, ::1] coefs = np.zeros((num_comp, p), dtype=DTYPE_F)
+        double[::1] pred_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] cx = np.zeros(num_comp, dtype=DTYPE_F)
         double[::1] covars = np.zeros(p, dtype=DTYPE_F)
 
@@ -248,10 +250,18 @@ def correct_fit(double[:, ::1] x, double[::1] y, int num_comp, double tol, int m
     for i in range(num_comp):
         for j in range(p):
             coefs[i, j] = cx[i] * covars[j]
+    
+    # perform prediction
+    for i in range(n):
+        tv = 0.
+        for j in range(p):
+            tv += coefs[pc_k, j] * x[i, j]
+        pred_y[i] = tv
 
-    return (np.asarray(tortho), np.asarray(portho), np.asarray(wortho),
-            np.asarray(tpred), np.asarray(wpred), np.asarray(ppred),
-            np.asarray(coefs), np.asarray(cx), np.asarray(covars))
+    return (np.asarray(pred_y), np.asarray(tortho), np.asarray(portho),
+            np.asarray(wortho), np.asarray(tpred), np.asarray(wpred),
+            np.asarray(ppred), np.asarray(coefs), np.asarray(cx),
+            np.asarray(covars))
 
 
 @cython.boundscheck(False)

@@ -19,6 +19,7 @@ class PLS:
         self.r2x_cum: Optional[np.ndarray] = None
         self.r2y: Optional[np.ndarray] = None
         self.r2y_cum: Optional[np.ndarray] = None
+        self.r2: Optional[float] = None
 
     def fit(self, x: np.ndarray, y: np.ndarray, num_comp: int) -> None:
         """
@@ -60,6 +61,10 @@ class PLS:
         self.r2y = r2y
         self.r2x_cum = r2x_cum
         self.r2y_cum = r2y_cum
+
+        # calculate R2
+        yp = np.dot(x, coefs[num_comp - 1])
+        self.r2 = 1. - ((yp - y) ** 2).sum() / ((y - y.mean()) ** 2).sum()
 
     def predict(self, x, num_comp=None) -> np.ndarray:
         """

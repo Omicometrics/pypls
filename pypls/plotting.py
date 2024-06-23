@@ -251,18 +251,13 @@ class Plots:
         else:
             plt.show()
 
-    def permutation_plot(self, metric="q2", save_plot=False,
+    def permutation_plot(self, save_plot=False,
                          file_name=None) -> None:
         """
         Creates permutation plot.
 
         Parameters
         ----------
-        metric: str
-            Metric used to assess the performance of the constructed model.
-            "q2" and "error" are accepted as values.
-            "q2": Q2
-            "error": Misclassification error rate.
         save_plot: bool
             Whether the plot should be saved. Default is False.
         file_name: str / None
@@ -272,48 +267,58 @@ class Plots:
         -------
 
         """
-        if metric not in ("q2", "error"):
-            raise ValueError("Expected `q2`, `error`, got {}.".format(metric))
-
-        if metric == "q2":
-            metric_name = "Q2"
-            mval = self._model.q2
-            perm_vals = self._model.permutation_q2
-        else:
-            metric_name = "Error Rate"
-            mval = self._model.min_nmc / self._model.y.size
-            perm_vals = self._model.permutation_error
+        q2 = self._model.q2
+        perm_q2 = self._model.permutation_q2
+        r2 = self._model.r2
+        perm_r2 = self._model.permutation_r2
 
         # perform the linear regression line
         x = self._model.correlation_permute_y
-        nperm = perm_vals.size
-        tx = x.sum() + 1.
-        ty = perm_vals.sum() + mval
-        a = (((x * perm_vals).sum() + mval - (tx * ty) / (nperm + 1.))
-             / ((x ** 2).sum() + 1. - tx ** 2 / (nperm + 1.)))
-        b = (ty - a * tx) / (nperm + 1.)
+        n: float = float(perm_q2.size)
+        tx = x.sum() / n
+        # Q2
+        ty = perm_q2.sum() / n
+        q2_a = (q2 - ty) / (1. - tx)
+        q2_b = q2 - q2_a
 
-        fig, ax = plt.subplots(figsize=(6, 4))
+        # R2
+        ty = perm_r2.sum() / n
+        r2_a = (r2 - ty) / (1. - tx)
+        r2_b = r2 - r2_a
+
+        line_kws = {"ls": "--", "lw": 1., "alpha": 0.6, "c": "k"}
+        perm_kws = {"ms": 6, "alpha": 0.6, "ls": "none", "zorder": 10.}
+        metric_kws = {"marker": "^", "ms": 8, "alpha": 0.8, "ls": "none",
+                      "mew": 1.5, "zorder": 10.}
+
+        fig, ax = plt.subplots(figsize=(6, 5))
         lx = np.linspace(0., 1., num=100)
-        ly = lx * a + b
-        _ = ax.plot(lx, ly, marker="none", ls="--", lw=1., color="k")
-        _ = ax.plot(x, perm_vals, marker="o", ls="none", ms=6,
-                    mec="mediumblue", mfc="skyblue", alpha=0.6,
-                    label=f"Permutation {metric_name}", zorder=10.)
-        _ = ax.plot([1.], [mval], marker="^", ls="none", ms=8,
-                    mec="firebrick", mfc="lightcoral", mew=1.5,
-                    label=f"Cross-validated {metric_name}", zorder=10.)
+        _ = ax.plot(lx, lx * q2_a + q2_b, **line_kws)
+        _ = ax.plot(lx, lx * r2_a + r2_b, **line_kws)
+        _ = ax.plot([1.], [q2], mec="mediumblue", mfc="skyblue",
+                    label=r"$Q^2$", **metric_kws)
+        _ = ax.plot(x, perm_q2, marker="o", mec="mediumblue", mfc="skyblue",
+                    label=r"Permutation $Q^2$", **perm_kws)
+        _ = ax.plot([1.], [r2], mec="firebrick", mfc="lightcoral",
+                    label=r"$R^2$", **metric_kws)
+        _ = ax.plot(x, perm_r2, marker="s", mec="lightcoral", mfc="firebrick",
+                    label=r"Permutation $R^2$", **perm_kws)
         ymin, ymax = ax.get_ylim()
-        _ = ax.plot([0., 0.], [ymin, ymax], ls="-", lw=1., color="lightgrey")
+        _ = ax.plot([0., 0.], [ymin, ymax], ls="-", lw=1., color="grey")
         ax.set_ylim(top=ymax, bottom=ymin)
         xmin, xmax = ax.get_xlim()
-        _ = ax.plot([xmin, xmax], [0., 0.], ls="-", lw=1., color="lightgrey")
+        _ = ax.plot([xmin, xmax], [0., 0.], ls="-", lw=1., color="grey")
         ax.set_xlim(left=xmin, right=xmax)
         ax.grid(visible=True, c="silver", ls="--", alpha=0.4)
-        ax.set_xlabel("Correlation permuted Y to original Y", fontsize=16)
-        ax.set_ylabel(metric_name, fontsize=16)
-        ax.legend(loc=9, ncols=2, bbox_to_anchor=(0.5, 1.12),
-                  handletextpad=0.2)
+        ax.set_xlabel(r"Correlation of permuted y to original y",
+                      fontsize=16, fontname="Times New Roman")
+        ax.set_ylabel(r"$R^2$, $Q^2$", fontsize=16)
+        legs = ax.legend(loc=9, ncols=4, bbox_to_anchor=(0.5, 1.12),
+                         handletextpad=0.05, columnspacing=1.2,
+                         prop={'size': 12, 'family':'Times New Roman'})
+        for lh in legs.legend_handles:
+            lh.set_alpha(1)
+
         plt.tight_layout()
 
         # save the plot
@@ -394,7 +399,8 @@ class Plots:
         ax.set_title(f"Permutation {metric_name} Distribution", fontsize=16)
 
         pstr = "%.2e" % p if p < 0.01 else "%.4f" % p
-        mstr = f"{round(mval, 2)}" if abs(mval) >= 0.01 else '%.2e' % mval
+        mstr = (f"{mval:.2f}" if abs(mval) >= 0.01 or mval == 0.
+                else '%.2e' % mval)
         labels = [f"{metric_name} = {mstr}", f"$p = ${pstr}"]
         h = mpl_patches.Rectangle((0, 0), 1, 1, fc="white", ec="white",
                                   lw=0, alpha=0)

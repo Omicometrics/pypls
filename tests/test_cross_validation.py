@@ -1,9 +1,9 @@
 import unittest
 import os
 
-from .cross_validation import (kfold_cv_opls, kfold_cv_pls,
-                               kfold_prediction, kfold_cv_pls_reg)
-from .pls import pls_c, pls_vip
+from pypls.core.cross_validation import (kfold_cv_opls, kfold_cv_pls,
+                                         kfold_prediction, kfold_cv_pls_reg)
+from pypls.core.pls import pls_c, pls_vip
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -95,10 +95,12 @@ class TestOpls(unittest.TestCase):
 
     def test_kfold_prediction(self):
         print("\ntest kfold_prediction:")
-        q2_o, err_o = kfold_prediction(self.x, self.y, 5, 3, 3, 1, 1e-10, 1000)
-        print(q2_o, err_o)
-        q2_p, err_p = kfold_prediction(self.x, self.y, 5, 4, 3, 2, 1e-10, 1000)
-        print(q2_p, err_p)
+        q2_o, r2_o, err_o = kfold_prediction(self.x, self.y, 5, 3, 3, 1,
+                                             1e-10, 1000)
+        print(q2_o, r2_o, err_o)
+        q2_p, r2_o, err_p = kfold_prediction(self.x, self.y, 5, 4, 3, 2,
+                                             1e-10, 1000)
+        print(q2_p, r2_o, err_p)
 
     def test_kfold_cv_pls2(self):
         # xs = (self.x2 - self.x2.mean(axis=0)) / self.x2.std(axis=0)

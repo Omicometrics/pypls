@@ -141,6 +141,88 @@ cdef void correct_predict(double[:, ::1] x, double[:, ::1] coefs,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+cdef double predict_opls(double[:, ::1] x, double[::1] y, double[::1] pred_y,
+                         double[:, ::1] w_ortho, double[:, ::1] p_ortho,
+                         double yw, double[::1] wp, int num_pc, int i0,
+                         int i1, int do_corr):
+    """ Prediction for OPLS. """
+    cdef:
+        Py_ssize_t i, j, a
+        Py_ssize_t n = x.shape[0]
+        Py_ssize_t p = x.shape[1]
+        double pressy = 0.
+        double v, d
+
+    if do_corr == 1:
+        for a in range(num_pc):
+            for i in range(i0, i1):
+                v = 0.
+                for j in range(p):
+                    v += x[i, j] * w_ortho[a, j]
+                # update data matrix by removing orthogonal components
+                for j in range(p):
+                    x[i, j] -= v * p_ortho[a, j]
+
+    # prediction using the coefficients
+    for i in range(i0, i1):
+        v = 0.
+        # coefficients: b = wp * y-weight
+        for j in range(p):
+            v += wp[j] * x[i, j]
+        v *= yw
+        pred_y[i - i0] = v
+        d = y[i] - v
+        # PRESS
+        pressy += d * d
+
+    return pressy
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cdef double predict_pls(double[:, ::1] x, double[::1] y, double[::1] pred_y,
+                        double[:, ::1] p, double[:, ::1] w, double[::1] y_w,
+                        int num_pc, int i0, int i1):
+    """ Prediction for OPLS. """
+    cdef:
+        Py_ssize_t i, j
+        Py_ssize_t n_vars = x.shape[1]
+        double * coefs = <double *> malloc(n_vars * sizeof(double))
+        double * tmp_sx = <double *> malloc(num_pc * sizeof(double))
+        double[:, ::1] inv_pw = np.linalg.inv(np.dot(p, w.T))
+        double pressy = 0.
+        double v, d
+
+    for i in range(num_pc):
+        v = 0.
+        for j in range(i, num_pc):
+            v += inv_pw[i, j] * y_w[j]
+        tmp_sx[i] = v
+
+    for j in range(n_vars):
+        v = 0.
+        for i in range(num_pc):
+            v += w[i, j] * tmp_sx[i]
+        coefs[j] = v
+
+    # prediction using the coefficients
+    for i in range(i0, i1):
+        v = 0.
+        for j in range(n_vars):
+            v += coefs[j] * x[i, j]
+        pred_y[i - i0] = v
+        d = y[i] - v
+        # PRESS
+        pressy += d * d
+
+    free(coefs)
+    free(tmp_sx)
+
+    return pressy
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 @cython.cdivision(True)
 cdef inline double cal_ssy(double[::1] y, int ntrains):
     cdef:
@@ -349,7 +431,7 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
 
     """
     cdef:
-        Py_ssize_t i, j, a, j_cv, b, jk, jb
+        Py_ssize_t i, j, a, j_cv, b
         Py_ssize_t n = x.shape[0]
         Py_ssize_t p = x.shape[1]
         Py_ssize_t dm = min(n, p)
@@ -358,8 +440,6 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         int[::1] test_ix = np.zeros(n, dtype=DTYPE)
         int[::1] no_mis_class = np.zeros(dm, dtype=DTYPE)
         int[::1] sel_var_ix = np.zeros(p, dtype=DTYPE)
-        double * tmp_pc = <double *> malloc(dm * sizeof(double))
-        double * tmp_coefs = <double *> malloc(p * sizeof(double))
         double * tmp_press = <double *> calloc(dm, sizeof(double))
         double[:, ::1] tt_x = np.zeros((n, p), dtype=DTYPE_F)
         double[:, ::1] tr_t_p = np.zeros((dm, n), dtype=DTYPE_F)
@@ -368,14 +448,14 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double[:, ::1] cv_pred_y = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_t = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_p = np.zeros((dm * k, p), dtype=DTYPE_F)
+        double[::1] tmp_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] tr_w_y = np.zeros(dm, dtype=DTYPE_F)
         double[::1] tt_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] q2 = np.zeros(dm, dtype=DTYPE_F)
         double[::1] cv_gix = np.zeros(n, dtype=DTYPE_F)
-        double[:, ::1] inv_pw
         double ssy = 0.
         double ik = <double> k
-        double tv, tc, d
+        double tc
 
     for i in range(n):
         cv_gix[i] = fmod(<double> i, ik)
@@ -391,54 +471,44 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
 
         # fitting the model
         n_pc = min(kr, <int> p)
-        if n_pc < val_npc:
-            val_npc = n_pc
         pls_(tt_x[:kr][:, :nsel], tt_y[:kr], n_pc, tol, max_iter, tr_t_p,
              tr_p_p, tr_w, tr_w_y)
 
         for a in range(n_pc):
             b = a + 1
-            inv_pw = np.linalg.inv(np.dot(tr_p_p[:b][:, :nsel], tr_w[:b][:, :nsel].T))
-            for i in range(b):
-                tv = 0.
-                for j in range(i, b):
-                    tv += inv_pw[i, j] * tr_w_y[j]
-                tmp_pc[i] = tv
+            tc = predict_pls(tt_x[:, :nsel], tt_y, tmp_y, tr_p_p[:b][:, :nsel],
+                             tr_w[:b][:, :nsel], tr_w_y, <int> b, kr, <int> n)
 
-            jk = a * k + j_cv
+            # PRESS
+            tmp_press[a] += tc
+
+            # cross validated loadings
+            i = a * k + j_cv
             for j in range(nsel):
-                tc = 0.
-                for i in range(b):
-                    tc += tr_w[i, j] * tmp_pc[i]
-                tmp_coefs[j] = tc
-                jb = <ssize_t> sel_var_ix[j]
-                cv_p[jk, jb] = tr_p_p[a, j]
+                b = <ssize_t> sel_var_ix[j]
+                cv_p[i, b] = tr_p_p[a, j]
 
-            # prediction using the coefficients
-            for i in range(kr, n):
-                tv = 0.
+            # predictions, cross validated scores
+            for i in range(n - kr):
                 tc = 0.
+                b = <ssize_t> kr + i
                 for j in range(nsel):
-                    tv += tmp_coefs[j] * tt_x[i, j]
-                    tc += tr_w[a, j] * tt_x[i, j]
-                d = tt_y[i] - tv
-                b = <ssize_t> test_ix[i - kr]
-                cv_pred_y[a, b] = tv
+                    tc += tr_w[a, j] * tt_x[b, j]
+                b = <ssize_t> test_ix[i]
                 cv_t[a, b] = tc
-                # PRESS
-                tmp_press[a] += d * d
+                cv_pred_y[a, b] = tmp_y[i]
+
+        if n_pc < val_npc:
+            val_npc = n_pc
 
     for a in range(n_pc):
         q2[a] = 1. - tmp_press[a] / ssy
 
     # the optimal number of PCs
     n_opt = get_opt_pcs(cv_pred_y, y, val_npc, no_mis_class)
+    a = n_opt * k
 
     free(tmp_press)
-    free(tmp_pc)
-    free(tmp_coefs)
-
-    a = n_opt * k
 
     return (np.asarray(cv_pred_y), np.asarray(q2[:val_npc]),
             np.asarray(no_mis_class[:val_npc]), np.asarray(cv_t[:val_npc]),
@@ -485,8 +555,6 @@ def kfold_cv_pls_reg(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         int kr, nsel, n_pc, n_opt
         int[::1] test_ix = np.zeros(n, dtype=DTYPE)
         int[::1] sel_var_ix = np.zeros(p, dtype=DTYPE)
-        double * tmp_pc = <double *> malloc(dm * sizeof(double))
-        double * tmp_coefs = <double *> malloc(p * sizeof(double))
         double[:, ::1] tt_x = np.zeros((n, p), dtype=DTYPE_F)
         double[:, ::1] tr_t_p = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] tr_p_p = np.zeros((dm, p), dtype=DTYPE_F)
@@ -494,6 +562,7 @@ def kfold_cv_pls_reg(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double[:, ::1] pred_y = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_t = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_p = np.zeros((dm * k, p), dtype=DTYPE_F)
+        double[::1] tmp_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] cv_q2 = np.zeros(dm, dtype=DTYPE_F)
         double[::1] cv_q2_2 = np.zeros(dm, dtype=DTYPE_F)
         double[::1] cv_pred_y = np.zeros(n, dtype=DTYPE_F)
@@ -536,36 +605,27 @@ def kfold_cv_pls_reg(double[:, ::1] x, double[::1] y, int k, int pre_tag,
 
         for a in range(n_pc):
             b = a + 1
-            inv_pw = np.linalg.inv(np.dot(tr_p_p[:b][:, :nsel], tr_w[:b][:, :nsel].T))
-            for i in range(b):
-                tv = 0.
-                for j in range(i, b):
-                    tv += inv_pw[i, j] * tr_w_y[j]
-                tmp_pc[i] = tv
+            tc = predict_pls(tt_x[:, :nsel], tt_y, tmp_y, tr_p_p[:b][:, :nsel],
+                             tr_w[:b][:, :nsel], tr_w_y, <int> b, kr, <int> n)
 
+            # PRESS
+            cv_rmse[a] += tc
+
+            # cross validated loadings
             jk = a * k + j_cv
             for j in range(nsel):
-                tc = 0.
-                for i in range(b):
-                    tc += tr_w[i, j] * tmp_pc[i]
-                tmp_coefs[j] = tc
                 jb = <ssize_t> sel_var_ix[j]
                 cv_p[jk, jb] = tr_p_p[a, j]
 
-            # prediction using the coefficients
+            # predictions, cross validated scores
             for i in range(n - kr):
-                tv = 0.
                 tc = 0.
                 b = <ssize_t> kr + i
                 for j in range(nsel):
-                    tv += tmp_coefs[j] * tt_x[b, j]
                     tc += tr_w[a, j] * tt_x[b, j]
-                d = tt_y[b] - tv
                 b = <ssize_t> test_ix[i]
-                pred_y[a, b] = tv + ym
                 cv_t[a, b] = tc
-                # PRESS
-                cv_rmse[a] += d * d
+                pred_y[a, b] = tmp_y[i] + ym
 
     for a in range(val_npc):
         cv_q2[a] = 1. - cv_rmse[a] / ssy
@@ -583,9 +643,6 @@ def kfold_cv_pls_reg(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         cv_pred_y[i] = pred_y[n_opt, i]
 
     a = n_opt * k
-
-    free(tmp_pc)
-    free(tmp_coefs)
 
     return (np.asarray(cv_pred_y), np.asarray(cv_q2[:val_npc]),
             np.asarray(cv_t[:val_npc]), np.asarray(cv_p[a: a + k]),
@@ -609,9 +666,7 @@ def kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
         int kr, nsel
         int[::1] test_ix = np.zeros(n, dtype=DTYPE)
         int[::1] sel_var_ix = np.zeros(p, dtype=DTYPE)
-        double * coefs = <double *> malloc(p * sizeof(double))
         double * pred_y = <double *> malloc(n * sizeof(double))
-        double * tmp_pc = <double *> malloc(num_pc * sizeof(double))
         double[:, ::1] tt_x = np.zeros((n, p), dtype=DTYPE_F)
         double[:, ::1] tr_t_ortho = np.zeros((num_pc, n), dtype=DTYPE_F)
         double[:, ::1] tr_p_ortho = np.zeros((num_pc, p), dtype=DTYPE_F)
@@ -619,6 +674,7 @@ def kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
         double[:, ::1] tr_t_p = np.zeros((num_pc, n), dtype=DTYPE_F)
         double[:, ::1] tr_p_p = np.zeros((num_pc, p), dtype=DTYPE_F)
         double[:, ::1] tr_w = np.zeros((num_pc, p), dtype=DTYPE_F)
+        double[::1] tmp_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] tr_w_y = np.zeros(num_pc, dtype=DTYPE_F)
         double[::1] tr_var_xy = np.zeros(p, dtype=DTYPE_F)
         double[::1] tt_y = np.zeros(n, dtype=DTYPE_F)
@@ -627,7 +683,7 @@ def kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
         double pressy = 0.
         double ssy = 0.
         double ik = <double> k
-        double tv, tc, d, q2
+        double tv, tc, d, q2, r2, err
 
     for i in range(n):
         cv_gix[i] = fmod(<double> i, ik)
@@ -646,62 +702,68 @@ def kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
                          tr_t_ortho, tr_p_ortho, tr_w_ortho, tr_t_p, tr_w_y,
                          tr_p_p, tr_w, tr_var_xy)
 
-            # correction
-            for a in range(num_pc):
-                for i in range(kr, n):
-                    tv = 0.
-                    for j in range(nsel):
-                        tv += tt_x[i, j] * tr_w_ortho[a, j]
-                    # update data matrix by removing orthogonal components
-                    for j in range(nsel):
-                        tt_x[i, j] -= tv * tr_p_ortho[a, j]
-
-            # coefficients
-            for j in range(nsel):
-                coefs[j] = tr_w_y[pc_k] * tr_var_xy[j]
-
+            tc = predict_opls(tt_x[:, :nsel], tt_y, tmp_y, tr_w_ortho,
+                              tr_p_ortho, tr_w_y[pc_k], tr_var_xy, num_pc,
+                              kr, <int> n, 1)
             # reset the values
             tr_var_xy[:] = 0.
         else:
             pls_(tt_x[:kr][:, :nsel], tt_y[:kr], num_pc, tol, max_iter, tr_t_p,
                  tr_p_p, tr_w, tr_w_y)
 
-            inv_pw = np.linalg.inv(np.dot(tr_p_p[:, :nsel], tr_w[:, :nsel].T))
-            for i in range(num_pc):
-                tv = 0.
-                for j in range(i, num_pc):
-                    tv += inv_pw[i, j] * tr_w_y[j]
-                tmp_pc[i] = tv
-
-            for j in range(nsel):
-                tc = 0.
-                for i in range(num_pc):
-                    tc += tr_w[i, j] * tmp_pc[i]
-                coefs[j] = tc
+            tc = predict_pls(tt_x[:, :nsel], tt_y, tmp_y, tr_p_p[:, :nsel],
+                             tr_w[:, :nsel], tr_w_y, num_pc, kr, <int> n)
 
         # prediction using the coefficients
-        for i in range(kr, n):
-            tv = 0.
-            for j in range(nsel):
-                tv += coefs[j] * tt_x[i, j]
-            a = <ssize_t> test_ix[i - kr]
-            pred_y[a] = tv
-            d = tt_y[i] - tv
-            # PRESS
-            pressy += d * d
+        for i in range(n - kr):
+            a = <ssize_t> test_ix[i]
+            pred_y[a] = tmp_y[i]
+        # PRESS
+        pressy += tc
 
     # summary the cross validation results
     q2 = 1. - pressy / ssy
-
     # error rate
     d = 0.
     for i in range(n):
         # y is -1 or 1
         if (pred_y[i] >= 0. > y[i]) or (pred_y[i] < 0. < y[i]):
             d += 1.
+    err = d / <double> n
 
-    free(coefs)
+    # calculate fitted R2
+    # :: copy x and y
+    cdef double[:, ::1] temp_x
+    tt_x[:] = x
+    tt_y[:] = y
+    # ssy
+    tv = 0.
+    tc = 0.
+    for i in range(n):
+        tv += y[i]
+        tc += y[i] * y[i]
+    ssy = tc - (tv * tv) / <double> n
+
+    nsel = scale_x_class(tt_x, tt_y, <int> n, pre_tag, sel_var_ix)
+    if alg_tag == 1:
+        # OPLS-DA
+        # correct and fit
+        correct_fit_(tt_x[:, :nsel], tt_y, num_pc, tol, max_iter, tr_t_ortho,
+                     tr_p_ortho, tr_w_ortho, tr_t_p, tr_w_y, tr_p_p, tr_w,
+                     tr_var_xy)
+        # predict y
+        pressy = predict_opls(tt_x[:, :nsel], y, tmp_y, tr_w_ortho, tr_p_ortho,
+                              tr_w_y[pc_k], tr_var_xy, num_pc, 0, <int> n, 0)
+    else:
+        # save the processed matrix
+        temp_x = tt_x.copy()
+        # PLS
+        pls_(tt_x[:, :nsel], tt_y, num_pc, tol, max_iter, tr_t_p, tr_p_p, tr_w, tr_w_y)
+        pressy = predict_pls(temp_x[:, :nsel], y, tmp_y, tr_p_p[:, :nsel],
+                             tr_w[:, :nsel], tr_w_y, num_pc, 0, <int> n)
+
+    r2 = 1. - pressy / ssy
+
     free(pred_y)
-    free(tmp_pc)
 
-    return q2, d / <double> n
+    return q2, r2, err

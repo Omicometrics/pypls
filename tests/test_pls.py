@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
 
-from .nipals import nipals
-from .pls import pls_c, pls_vip
+from pypls.core.nipals import nipals
+from pypls.core.pls import pls_c, pls_vip
 
 import matplotlib.pyplot as plt
 
@@ -63,9 +63,9 @@ class TestPLS(unittest.TestCase):
         py = np.dot(x6_r, coefs[1])
         self.assertTrue(abs(py[0] - 0.326) <= 0.001)
 
-        # fig, ax = plt.subplots()
-        # ax.plot(ys, yp[:, num_comp - 1], ".")
-        # plt.show()
+        fig, ax = plt.subplots()
+        ax.plot(ys, yp[:, num_comp - 1], ".")
+        plt.show()
 
     def test_pls_vip(self):
         xs = (self.x - self.x.mean(axis=0)) / self.x.std(axis=0)

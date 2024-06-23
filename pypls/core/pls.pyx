@@ -204,12 +204,16 @@ def summary_pls(double[:, ::1] x, double[::1] y, double[:, ::1] scores,
         double[::1] r2y_cum = np.zeros(num_pc, dtype=DTYPE_F)
         double ssx = 0.
         double ssy = 0.
-        double s, rss, rss_a, d
+        double s, rss, rss_a, d, ym
 
+    ym = 0.
     for i in range(n):
         for j in range(p):
             ssx += x[i, j] * x[i, j]
-        ssy = y[i] * y[i]
+        ym += y[i]
+    ym /= <double> n
+    for i in range(n):
+        ssy += (y[i] - ym) ** 2
 
     for a in range(num_pc):
         ji = 0
@@ -230,14 +234,14 @@ def summary_pls(double[:, ::1] x, double[::1] y, double[:, ::1] scores,
         rss = 0.
         rss_a = 0.
         for i in range(n):
-            s = scores[a, i] * y_weights[i]
+            s = scores[a, i] * y_weights[a]
             d = y[i] - s
             rec_y[i] += s
             rss_a += d * d
             d = y[i] - rec_y[i]
             rss += d * d
-        r2y[a] = 1. - rss_a / ssy
-        r2y_cum[a] = 1. - rss / ssy
+        r2y[a] = 1. - rss / ssy
+        r2y_cum[a] = 1. - rss_a / ssy
 
     for i in range(1, num_pc):
         r2x_cum[i] += r2x_cum[i - 1]
