@@ -5,6 +5,7 @@ from .cross_validation import (kfold_cv_opls,
                                kfold_cv_pls,
                                kfold_cv_pls_reg,
                                kfold_prediction)
+from .scale_xy import scale_x_class, scale_x_reg
 
 
 __all__ = [
@@ -19,5 +20,7 @@ __all__ = [
     "kfold_cv_pls_reg",
     "kfold_prediction",
     "summary_opls",
-    "summary_pls"
+    "summary_pls",
+    "scale_x_class",
+    "scale_x_reg"
 ]

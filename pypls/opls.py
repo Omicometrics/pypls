@@ -189,9 +189,9 @@ class OPLS:
             n_component = self.npc
 
         if x.ndim == 1:
-            xc, t = correct_x_1d(x.copy(), n_component)
+            xc, t = correct_x_1d(x.copy(), self._Wortho, self._Portho)
         else:
-            xc, t = correct_x_2d(x.copy(), n_component)
+            xc, t = correct_x_2d(x.copy(), self._Wortho, self._Portho)
 
         if return_scores:
             return xc, t

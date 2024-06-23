@@ -46,15 +46,6 @@ class CrossValidation:
                  tol=1.e-10, max_iter=1000):
         # number of folds
         self.kfold: int = kfold
-        self._scaler_tag: typing.Optional[int] = None
-        if scaler == "mean":
-            self._scaler_tag = 1
-        elif scaler == "pareto":
-            self._scaler_tag = 2
-        elif scaler == "uv":
-            self._scaler_tag = 3
-        elif scaler == "minmax":
-            self._scaler_tag = 4
         self._tol: float = tol
         self._max_iter: int = max_iter
         self._scaler_param: str = scaler
@@ -80,7 +71,6 @@ class CrossValidation:
         self._x: typing.Optional[np.ndarray] = None
         self.y: typing.Optional[np.ndarray] = None
         self.groups: typing.Optional[dict] = None
-        self._used_variable_index: typing.Optional[np.ndarray] = None
         self._r2xcorr: typing.Optional[np.ndarray] = None
         self._r2xyo: typing.Optional[np.ndarray] = None
         self._corr_y_perms: typing.Optional[np.ndarray] = None
@@ -111,10 +101,12 @@ class CrossValidation:
         # set the labels in y to 0 and 1, and name the groups using
         # the labels in y
         y = self._reset_y(y)
+        x = self._check_x(x)
+        scale_tag: int = self.scaler.scaler_tag
 
         if self.use_opls:
             (pred_y, q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, p_p, p_o,
-             n_opt, n0) = kfold_cv_opls(x, y, self.kfold, self._scaler_tag,
+             n_opt, n0) = kfold_cv_opls(x, y, self.kfold, scale_tag,
                                         self._tol, self._max_iter)
             self._r2xcorr = r2xcorr
             self._r2xyo = r2xyo
@@ -122,7 +114,7 @@ class CrossValidation:
             self._pcv_ortho = p_o
         else:
             pred_y, q2, no_mcs, t_p, p_p, n_opt, n0 = kfold_cv_pls(
-                x, y, self.kfold, self._scaler_tag, self._tol, self._max_iter)
+                x, y, self.kfold, scale_tag, self._tol, self._max_iter)
 
         self._opt_component = n_opt
         self._mis_classifications = no_mcs
@@ -167,7 +159,7 @@ class CrossValidation:
         #       data and the input data matrix.
         npc = self._opt_component + 1
         # scale the matrix
-        x = self.scaler.scale(x[:, self._used_variable_index])
+        x = self.scaler.scale(x[:, self.scaler.variable_index])
         if self.use_opls:
             x = self.estimator.correct(x.copy(), n_component=npc)
             return self.estimator.predict(
@@ -200,7 +192,7 @@ class CrossValidation:
         k: int = self.kfold
 
         # do permutation test
-        x = np.ascontiguousarray(self._x[:, self._used_variable_index],
+        x = np.ascontiguousarray(self._x[:, self.scaler.variable_index],
                                  np.float64)
         # center y
         y_center = self.y - self.y.mean()
@@ -208,6 +200,7 @@ class CrossValidation:
         # optimal component number
         npc: int = self._opt_component + 1
         n: int = self.y.size
+        scale_tag: int = self.scaler.scaler_tag
 
         rnd_generator = np.random.default_rng()
 
@@ -220,8 +213,8 @@ class CrossValidation:
             # randomize labels
             ix = rnd_generator.permutation(n)
             ry = self.y[ix]
-            q2, r2, err = kfold_prediction(x, ry, k, npc, self._scaler_tag,
-                                           atag, self._tol, self._max_iter)
+            q2, r2, err = kfold_prediction(x, ry, k, npc, scale_tag, atag,
+                                           self._tol, self._max_iter)
             perm_err[i] = err
             perm_q2[i] = q2
             perm_r2[i] = r2
@@ -396,7 +389,7 @@ class CrossValidation:
             Modeled variation of X
 
         """
-        return self.estimator.r2x[self._opt_component]
+        return float(self.estimator.r2x[self._opt_component])
 
     @property
     def r2y(self) -> float:
@@ -408,7 +401,7 @@ class CrossValidation:
             Modeled variation of y
 
         """
-        return self.estimator.r2y[self._opt_component]
+        return float(self.estimator.r2y[self._opt_component])
 
     @property
     def r2x_cum(self) -> float:
@@ -422,7 +415,7 @@ class CrossValidation:
             Cumulative fraction of the sum of squares explained
 
         """
-        return self.estimator.r2x_cum[self._opt_component]
+        return float(self.estimator.r2x_cum[self._opt_component])
 
     @property
     def r2y_cum(self) -> float:
@@ -436,7 +429,7 @@ class CrossValidation:
             Cumulative fraction of the sum of squares explained
 
         """
-        return self.estimator.r2y_cum[self._opt_component]
+        return float(self.estimator.r2y_cum[self._opt_component])
 
     @property
     def correlation(self) -> np.ndarray:
@@ -557,7 +550,7 @@ class CrossValidation:
             Indices of variables used for model construction
 
         """
-        return self._used_variable_index
+        return self.scaler.variable_index
 
     @property
     def permutation_q2(self):
@@ -670,9 +663,9 @@ class CrossValidation:
         return nb / nt
 
     @staticmethod
-    def _check_x(x) -> typing.Tuple[np.ndarray, np.ndarray]:
+    def _check_x(x) -> np.ndarray:
         """
-        Checks the valid variables to remove those with unique value.
+        Checks the valid variables.
 
         Parameters
         ----------
@@ -681,42 +674,29 @@ class CrossValidation:
 
         Returns
         -------
-        index: np.ndarray
-            Indices of valid variables
         x: np.ndarray
-            Valid data matrix
+            Valid data matrix with no NaNs and Infs.
 
         """
         # check nan and inf
-        has_nan = np.isnan(x).any(axis=0)
-        has_inf = np.isinf(x).any(axis=0)
-        idx, = np.where(~(has_nan | has_inf))
-        # check unique value
-        is_unique_value = np.absolute(
-            x[:, idx] - x[:, idx].mean(axis=0)
-        ).sum(axis=0) == 0.
-        # index of valid variables
-        idx = idx[~is_unique_value]
-
-        return idx, np.ascontiguousarray(x[:, idx], dtype=np.float64)
+        x[np.isnan(x)] = 0.
+        x[np.isinf(x)] = 0.
+        return x
 
     def _create_optimal_model(self, x: np.ndarray, y: np.ndarray) -> None:
         """
         Create final model based on the optimal number of components.
         """
-        val_ix, x = self._check_x(x)
+        x = self._check_x(x.copy())
 
         # scale data matrix
-        x_scale = self.scaler.fit(x)
+        x_scale = self.scaler.fit(x, y)
 
         # optimal component number
         npc = self._opt_component+1
 
         # fit the model
         self.estimator.fit(x_scale.copy(), y.copy(), npc)
-
-        # indices of variables used for model construction
-        self._used_variable_index = val_ix
 
     def _reset_y(self, y) -> np.ndarray:
         """

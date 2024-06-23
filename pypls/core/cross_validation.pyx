@@ -8,7 +8,7 @@ cimport numpy as np
 
 from .opls cimport correct_fit_
 from .pls cimport pls_
-from .scale_xy cimport scale_x_class, scale_x_reg
+from .scale_xy cimport scale_x_class_, scale_x_reg_
 
 np.import_array()
 
@@ -301,6 +301,8 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double[:, ::1] cv_pred_y = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] ssx_corr = np.zeros((k, dm), dtype=DTYPE_F)
         double[:, ::1] ssx_ortho = np.zeros((k, dm), dtype=DTYPE_F)
+        double[::1] tmp_c = np.zeros(p, dtype=DTYPE_F)
+        double[::1] tmp_d = np.zeros(p, dtype=DTYPE_F)
         double[::1] tmp_corr_tp = np.zeros(n, dtype=DTYPE_F)
         double[::1] tr_w_y = np.zeros(dm, dtype=DTYPE_F)
         double[::1] tr_var_xy = np.zeros(p, dtype=DTYPE_F)
@@ -324,7 +326,7 @@ def kfold_cv_opls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         kr = get_train_tests(x, y, cv_gix, <double> j_cv, tt_x, tt_y, test_ix)
 
         # scaling
-        nsel = scale_x_class(tt_x, tt_y, kr, pre_tag, sel_var_ix)
+        nsel = scale_x_class_(tt_x, tt_y, kr, pre_tag, sel_var_ix, tmp_c, tmp_d)
         # SSX and SSY of testing data
         for i in range(kr, n):
             for j in range(nsel):
@@ -448,6 +450,8 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double[:, ::1] cv_pred_y = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_t = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_p = np.zeros((dm * k, p), dtype=DTYPE_F)
+        double[::1] tmp_c = np.zeros(p, dtype=DTYPE_F)
+        double[::1] tmp_d = np.zeros(p, dtype=DTYPE_F)
         double[::1] tmp_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] tr_w_y = np.zeros(dm, dtype=DTYPE_F)
         double[::1] tt_y = np.zeros(n, dtype=DTYPE_F)
@@ -464,7 +468,7 @@ def kfold_cv_pls(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         # extract training and testing data
         kr = get_train_tests(x, y, cv_gix, <double> j_cv, tt_x, tt_y, test_ix)
         # scaling
-        nsel = scale_x_class(tt_x, tt_y, kr, pre_tag, sel_var_ix)
+        nsel = scale_x_class_(tt_x, tt_y, kr, pre_tag, sel_var_ix, tmp_c, tmp_d)
 
         # SSY of testing data
         ssy += cal_ssy(tt_y, kr)
@@ -562,6 +566,8 @@ def kfold_cv_pls_reg(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         double[:, ::1] pred_y = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_t = np.zeros((dm, n), dtype=DTYPE_F)
         double[:, ::1] cv_p = np.zeros((dm * k, p), dtype=DTYPE_F)
+        double[::1] tmp_c = np.zeros(p, dtype=DTYPE_F)
+        double[::1] tmp_d = np.zeros(p, dtype=DTYPE_F)
         double[::1] tmp_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] cv_q2 = np.zeros(dm, dtype=DTYPE_F)
         double[::1] cv_q2_2 = np.zeros(dm, dtype=DTYPE_F)
@@ -583,7 +589,7 @@ def kfold_cv_pls_reg(double[:, ::1] x, double[::1] y, int k, int pre_tag,
         # extract training and testing data
         kr = get_train_tests(x, y, cv_gix, <double> j_cv, tt_x, tt_y, test_ix)
         # scaling
-        nsel = scale_x_reg(tt_x, kr, pre_tag, sel_var_ix)
+        nsel = scale_x_reg_(tt_x, kr, pre_tag, sel_var_ix, tmp_c, tmp_d)
 
         # centering y
         ym = 0.
@@ -674,6 +680,8 @@ def kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
         double[:, ::1] tr_t_p = np.zeros((num_pc, n), dtype=DTYPE_F)
         double[:, ::1] tr_p_p = np.zeros((num_pc, p), dtype=DTYPE_F)
         double[:, ::1] tr_w = np.zeros((num_pc, p), dtype=DTYPE_F)
+        double[::1] tmp_c = np.zeros(p, dtype=DTYPE_F)
+        double[::1] tmp_d = np.zeros(p, dtype=DTYPE_F)
         double[::1] tmp_y = np.zeros(n, dtype=DTYPE_F)
         double[::1] tr_w_y = np.zeros(num_pc, dtype=DTYPE_F)
         double[::1] tr_var_xy = np.zeros(p, dtype=DTYPE_F)
@@ -692,7 +700,7 @@ def kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
         # extract training and testing data
         kr = get_train_tests(x, y, cv_gix, <double> j_cv, tt_x, tt_y, test_ix)
         # scaling
-        nsel = scale_x_class(tt_x, tt_y, kr, pre_tag, sel_var_ix)
+        nsel = scale_x_class_(tt_x, tt_y, kr, pre_tag, sel_var_ix, tmp_c, tmp_d)
         ssy += cal_ssy(tt_y, kr)
 
         if alg_tag == 1:
@@ -744,7 +752,7 @@ def kfold_prediction(double[:, ::1] x, double[::1] y, int k, int num_pc,
         tc += y[i] * y[i]
     ssy = tc - (tv * tv) / <double> n
 
-    nsel = scale_x_class(tt_x, tt_y, <int> n, pre_tag, sel_var_ix)
+    nsel = scale_x_class_(tt_x, tt_y, <int> n, pre_tag, sel_var_ix, tmp_c, tmp_d)
     if alg_tag == 1:
         # OPLS-DA
         # correct and fit
