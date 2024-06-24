@@ -415,7 +415,7 @@ def summary_opls(double[:, ::1] x, double[::1] y, double[:, ::1] pred_scores,
         # reconstruct dependent vector y
         rss = 0.
         for i in range(n):
-            rec_y_c[i] += pred_scores[a, i] * y_weights[a]
+            rec_y_c[i] = pred_scores[a, i] * y_weights[a]
             d = y[i] - rec_y_c[i]
             rss += d * d
         r2y[a] = 1. - rss / ssy

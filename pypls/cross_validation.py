@@ -49,6 +49,7 @@ class CrossValidation:
         self._tol: float = tol
         self._max_iter: int = max_iter
         self._scaler_param: str = scaler
+        self.valid_for_splot: bool = scaler in ("pareto", "mean")
         self.estimator_name: str = estimator
         self.use_opls: bool = estimator == "opls"
         # estimator

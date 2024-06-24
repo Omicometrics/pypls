@@ -71,6 +71,11 @@ cdef int scale_x_class_(double[:, ::1] x, double[::1] y, int ntrains, int tag,
                 vec_div[pj] = ts
                 pj += 1
 
+        if tag == 2:
+            # pareto
+            for j in range(pj):
+                vec_div[j] = sqrt(vec_div[j])
+
     if tag == 1:
         for i in range(n):
             for j in range(pj):

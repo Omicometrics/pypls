@@ -130,6 +130,10 @@ class Plots:
         if not self._model.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
 
+        if not self._model.valid_for_splot:
+            raise ValueError("S-plot only works for centered "
+                             "or pareto scaled data.")
+
         # covariance and correlations
         covx = self._model.covariance
         corrx = self._model.correlation
@@ -251,8 +255,7 @@ class Plots:
         else:
             plt.show()
 
-    def permutation_plot(self, save_plot=False,
-                         file_name=None) -> None:
+    def permutation_plot(self, save_plot=False, file_name=None) -> None:
         """
         Creates permutation plot.
 
@@ -331,8 +334,7 @@ class Plots:
             plt.show()
 
     def plot_permutation_dist(self, metric="q2", do_kde: bool = True,
-                              save_plot=False,
-                              file_name=None) -> None:
+                              save_plot=False, file_name=None) -> None:
         """
         Plots the distribution of metrics obtained from permutation test.
 
