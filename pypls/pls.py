@@ -94,7 +94,7 @@ class PLS:
 
         return np.dot(x, self.coefs[npc])
 
-    def calculate_vip(self) -> np.ndarray:
+    def calculate_vip(self, num_comp: int) -> None:
         """
         Calculates variable importance in projection.
 
@@ -104,7 +104,25 @@ class PLS:
             Variable importance in projection.
 
         """
-        return pls_vip(self._W, self._T, self._C)
+        npc: int = self._T.shape[0]
+        if num_comp > npc:
+            raise ValueError("The number of components input must not be "
+                             "larger than the maximum number of "
+                             f"components {npc}.")
+
+        self._vips = pls_vip(self._W[:num_comp], self._T[:num_comp],
+                             self._C[:num_comp])
+
+    @property
+    def vip(self) -> np.ndarray:
+        """
+        Variable importance in projection.
+
+        Returns
+        -------
+
+        """
+        return self._vips[-1]
 
     @property
     def scores_x(self) -> np.ndarray:

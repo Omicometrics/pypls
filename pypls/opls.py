@@ -3,7 +3,8 @@ Orthogonal Projection on Latent Structure (O-PLS)
 """
 import numpy as np
 from typing import Optional, Tuple
-from .core import correct_fit, correct_x_1d, correct_x_2d, summary_opls
+from .core import (correct_fit, correct_x_1d, correct_x_2d,
+                   summary_opls, opls_vip)
 
 
 class OPLS:
@@ -50,8 +51,11 @@ class OPLS:
         self._P: Optional[np.ndarray] = None
         self._C: Optional[np.ndarray] = None
         self._W: Optional[np.ndarray] = None
+        self._vip4o: Optional[np.ndarray] = None
+        self._vip4p: Optional[np.ndarray] = None
+        self._vip4t: Optional[np.ndarray] = None
         # coefficients
-        self.coef: Optional[np.ndarray] = None
+        self.coefs: Optional[np.ndarray] = None
         # statistics
         self.cov: Optional[np.ndarray] = None
         self.corr: Optional[np.ndarray] = None
@@ -65,7 +69,7 @@ class OPLS:
         self.tol = tol
         self.max_iter = max_iter
 
-    def fit(self, x, y, n_comp=None):
+    def fit(self, x, y, n_comp=None) -> None:
         """
         Fits an OPLS model.
 
@@ -117,7 +121,7 @@ class OPLS:
         self._T = t_p
         self._P = p_p
         self._C = w_y
-        self.coef = coefs
+        self.coefs = coefs
 
         # summaries of the fits
         self.cov = cov
@@ -160,7 +164,8 @@ class OPLS:
 
         return y
 
-    def correct(self, x, n_component=None, return_scores=False):
+    def correct(self, x, n_component=None, return_scores=False)\
+            -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
         """
         Correction of X
 
@@ -198,7 +203,7 @@ class OPLS:
 
         return xc
 
-    def predictive_score(self, n_component=None):
+    def predictive_score(self, n_component=None) -> np.ndarray:
         """
         Parameters
         ----------
@@ -215,7 +220,7 @@ class OPLS:
             n_component = self.npc
         return self._T[n_component-1]
 
-    def ortho_score(self, n_component=None):
+    def ortho_score(self, n_component=None) -> np.ndarray:
         """
 
         Parameters
@@ -233,7 +238,7 @@ class OPLS:
             n_component = self.npc
         return self._Tortho[n_component-1]
 
-    def calculate_vip(self, num_comp: int):
+    def calculate_vip(self, num_comp: int) -> None:
         """
         Calculates VIPs
 
@@ -244,23 +249,25 @@ class OPLS:
         Returns
         -------
         np.ndarray
-            VIP1
+            VIP4,O: Orthogonal VIP.
         np.ndarray
-            VIP2
+            VIP4,P: Predictive VIP.
         np.ndarray
-            VIP3
-        np.ndarray
-            VIP4
+            VIP4,tot: Total VIP.
 
         References
         ----------
-        [1] B. Galindo-Prieto, L. Eriksson, J. Trygg. Variable
-            influence on projection (VIP) for orthogonal projections
-            to latent structures (OPLS). J Chemometr. 2014, 28, 623-632.
-        [2] B. Galindo-Prieto, L. Eriksson, J. Trygg. Variable
-            influence on projection (VIP) for OPLS models and its
-            applicability in multivariate time series analysis.
-            Chem Int Lab Sys. 2015, 146, 297-304.
+        [1] B. Galindo-Prieto, et al. Variable influence on projection
+            (VIP) for orthogonal projections to latent structures
+            (OPLS). J Chemometr. 2014, 28, 623-632.
+        [2] B. Galindo-Prieto, et al. Variable influence on projection
+            (VIP) for OPLS models and its applicability in multivariate
+            time series analysis. Chem Int Lab Sys. 2015, 146, 297-304.
+
+        Notes
+        -----
+            Here, only VIPs from orthonomal loadings P were
+            implemented, i.e., VIP4 of ref, which is recommended.
 
         """
         if num_comp > self.npc:
@@ -268,40 +275,49 @@ class OPLS:
                              "larger than the maximum number of "
                              f"components {self.npc}.")
 
-        p: int = self._W.shape[0]
-        ssx_o: float = 0.
-        w_weights_o: np.ndarray = np.zeros((num_comp, p))
-        for i in range(num_comp):
-            xrec = np.dot(self._Tortho[:, i][:, np.newaxis],
-                          self._Portho[:, i][np.newaxis, :])
-            ssx_ok = (xrec ** 2).sum()
-            ssx_o += ssx_ok
-            w_weights_o[i] = (self._Wortho[:, i] ** 2) * ssx_ok
-
-        vip_1o = np.sqrt(w_weights_o.sum(axis=0) * p / ssx_o)
-
+        npc: int = num_comp - 1
+        vip_o, vip_p, vip_t = opls_vip(self._Tortho, self._Portho,
+                                       self._T[npc], self._P[npc])
+        self._vip4o = vip_o
+        self._vip4p = vip_p
+        self._vip4t = vip_t
 
     @property
-    def predictive_scores(self):
+    def predictive_scores(self) -> np.ndarray:
         """ Orthogonal loadings. """
         return self._T.T
 
     @property
-    def predictive_loadings(self):
+    def predictive_loadings(self) -> np.ndarray:
         """ Predictive loadings. """
         return self._P.T
 
     @property
-    def weights_y(self):
+    def weights_y(self) -> np.ndarray:
         """ y scores. """
         return self._C
 
     @property
-    def orthogonal_loadings(self):
+    def orthogonal_loadings(self) -> np.ndarray:
         """ Orthogonal loadings. """
         return self._Portho.T
 
     @property
-    def orthogonal_scores(self):
+    def orthogonal_scores(self) -> np.ndarray:
         """ Orthogonal scores. """
         return self._Tortho.T
+
+    @property
+    def vip(self) -> np.ndarray:
+        """
+        Variable influence on projection for OPLS. This returns the
+        total VIP4 of ref [1].
+
+        References
+        ----------
+        [1] Galindo-Prieto B, et al. Variable influence on projection
+            (VIP) for orthogonal projections to latent structures
+            (OPLS). J Chemometrics. 2014, 28(8), 623-632.
+
+        """
+        return self._vip4t

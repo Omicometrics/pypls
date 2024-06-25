@@ -2,8 +2,9 @@ import unittest
 import os
 
 import numpy as np
+import matplotlib.pyplot as plt
 
-from pypls.core.opls import correct_fit, correct_x_1d, correct_x_2d
+from pypls.core.opls import correct_fit, correct_x_1d, correct_x_2d, opls_vip
 
 path = os.path.dirname(os.path.abspath(__file__))
 
@@ -15,6 +16,14 @@ class TestOpls(unittest.TestCase):
                                        [-0.48, 1.52],
                                        [0.83, 0.83]], dtype=np.float64)
         self.y = np.fromiter([2., 2., 0., -4.], dtype=np.float64)
+
+        # metabolomics data
+        data_txt = np.genfromtxt(os.path.join(path, r"ST000415_AN000657.txt"),
+                                 delimiter="\t", dtype=str)
+        tmp_x = data_txt[1:][:, 1:].astype(np.float64).T
+        self.x_metab = np.ascontiguousarray(tmp_x)
+        self.y_metab = np.ones(self.x_metab.shape[0], dtype=np.float64)
+        self.y_metab[:8] = -1.
 
     def test_correct_fit(self):
         yp, t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
@@ -49,6 +58,33 @@ class TestOpls(unittest.TestCase):
         with np.printoptions(precision=3, suppress=True):
             print(x_corr)
             print(tp)
+
+    def test_vip(self):
+        xs = ((self.x_metab - self.x_metab.mean(axis=0))
+              / self.x_metab.std(axis=0))
+        print("**" * 40)
+        print(xs.shape)
+        npc: int = 2
+        yp, t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
+            xs.copy(), self.y_metab.copy(), npc, 1e-6, 1000)
+        vip_o, vip_p, vip_t = opls_vip(t_o, p_o, t_p[npc - 1], p_p[npc - 1])
+
+        fig, ax = plt.subplots()
+        ax.plot(t_p[npc - 1][:8], t_o[npc - 1][:8],
+                "o", mfc="none", mec="firebrick", ms=6)
+        ax.plot(t_p[npc - 1][8:], t_o[npc - 1][8:],
+                "s", mfc="none", mec="royalblue", ms=6)
+        x0, x1 = ax.get_xlim()
+        y0, y1 = ax.get_ylim()
+        ax.plot([0, 0], [y0, y1], "--k")
+        ax.plot([x0, x1], [0, 0], "--k")
+        ax.set_xlim(left=x0, right=x1)
+        ax.set_ylim(bottom=y0, top=y1)
+        plt.show()
+
+        fig, ax = plt.subplots()
+        ax.bar(np.arange(vip_t.shape[0]), vip_t)
+        plt.show()
 
 
 if __name__ == '__main__':

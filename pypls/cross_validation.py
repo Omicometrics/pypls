@@ -54,8 +54,8 @@ class CrossValidation:
         self.use_opls: bool = estimator == "opls"
         # estimator
         f_estimator, f_scaler = self._create_scaler_estimator()
-        self.estimator = f_estimator
-        self.scaler = f_scaler
+        self.estimator: [PLS | OPLS] = f_estimator
+        self.scaler: [pretreatment.Scaler] = f_scaler
         # initialize other attributes, but should be HIDDEN
         self._Tortho: typing.Optional[np.ndarray] = None
         self._Tpred: typing.Optional[np.ndarray] = None
@@ -79,6 +79,7 @@ class CrossValidation:
         self._perm_r2: typing.Optional[np.ndarray] = None
         self._perm_err: typing.Optional[np.ndarray] = None
         self._vip: typing.Optional[np.ndarray] = None
+        self._coefcs: typing.Optional[np.ndarray] = None
 
     def fit(self, x, y):
         """
@@ -250,6 +251,19 @@ class CrossValidation:
         self._opt_component = k
         # re-fit the model using the updated optimal number of components
         self._create_optimal_model(self._x, self.y)
+
+    @property
+    def coefcs(self) -> np.ndarray:
+        """
+        Returns the coefficients of centered and scaled X.
+
+        Returns
+        -------
+        np.ndarray
+            The coefficients of centered and scaled X.
+
+        """
+        return self._coefcs
 
     @property
     def orthogonal_score(self) -> np.ndarray:
@@ -625,6 +639,14 @@ class CrossValidation:
             raise ValueError("Permutation test has not been performed.")
         return self._corr_y_perms
 
+    @property
+    def vip(self):
+        """
+        Returns VIPs of variables
+
+        """
+        return self._vip
+
     def p(self, metric="q2"):
         """
         Calculates the significance of the constructed model by
@@ -694,10 +716,21 @@ class CrossValidation:
         x_scale = self.scaler.fit(x, y)
 
         # optimal component number
-        npc = self._opt_component+1
+        npc = self._opt_component + 1
 
         # fit the model
         self.estimator.fit(x_scale.copy(), y.copy(), npc)
+
+        # calculate VIPs
+        self.estimator.calculate_vip(npc)
+        self._vip = self.estimator.vip
+
+        # coefficients of centered and scaled X
+        estimator, _ = self._create_scaler_estimator()
+        scaler = pretreatment.Scaler("uv")
+        x_uv = scaler.fit(x[:, self.scaler.variable_index], y)
+        estimator.fit(x_uv.copy(), y.copy(), npc)
+        self._coefcs = estimator.coefs[self._opt_component]
 
     def _reset_y(self, y) -> np.ndarray:
         """

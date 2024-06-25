@@ -4,6 +4,7 @@ import os
 from pypls.core.cross_validation import (kfold_cv_opls, kfold_cv_pls,
                                          kfold_prediction, kfold_cv_pls_reg)
 from pypls.core.pls import pls_c, pls_vip
+from pypls.core.opls import correct_fit, opls_vip
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -149,6 +150,21 @@ class TestOpls(unittest.TestCase):
 
         fig, ax = plt.subplots()
         ax.bar(np.arange(p + 4), vips[2])
+        plt.show()
+
+    def test_coef_vip(self):
+        # k-fold cross validation
+        (pred_y, q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, p_p, p_o, n_opt,
+         n0) = kfold_cv_opls(self.x, self.y, 5, 2, 1e-10, 1000)
+        # re-fit OPLS-DA model
+        xs = (self.x - self.x.mean(axis=0)) / self.x.std(axis=0)
+        yp, t_o, p_o, w_o, t_p, w_p, p_p, coefs, w_y, tw = correct_fit(
+            xs.copy(), self.y.copy(), n_opt + 1, 1e-10, 1000)
+        vip_o, vip_p, vip_t = opls_vip(t_o, p_o, t_p[n_opt], p_p[n_opt])
+        coefcs = coefs[n_opt]
+
+        fig, ax = plt.subplots()
+        ax.plot(coefcs, vip_t, "r.")
         plt.show()
 
 

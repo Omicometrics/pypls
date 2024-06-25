@@ -201,9 +201,65 @@ cdef void correct_2d_(double[:, ::1] x, double[:, ::1] wortho,
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef vip_():
+@cython.cdivision(True)
+cdef void vip_(double[:, ::1] tortho, double[:, ::1] portho, double[::1] tp,
+               double[::1] pp, double[::1] vip_o, double[::1] vip_p,
+               double[::1] vip_tot):
+
     cdef:
-        Py_ssize_t i, j
+        Py_ssize_t i, j, a, b
+        Py_ssize_t n = tp.shape[0]
+        Py_ssize_t p = pp.shape[0]
+        Py_ssize_t npc = tortho.shape[0]
+        double * x_rec = <double *> calloc(n * p, sizeof(double))
+        double * tmp_vip_o = <double *> calloc(p, sizeof(double))
+        double k = <double> p / 2.
+        double ssx_c = 0.
+        double ssx_o = 0.
+        double ssx_p = 0.
+        double ssx_k, v, ko, kp, q, r_ssx_pc, rj
+
+    # orthogonal SSX
+    for a in range(npc):
+        ssx_k = 0.
+        b = 0
+        for i in range(n):
+            for j in range(p):
+                v = tortho[a, i] * portho[a, j]
+                ssx_k += v * v
+                x_rec[b] += v
+                b += 1
+        for j in range(p):
+            tmp_vip_o[j] += portho[a, j] * portho[a, j] * ssx_k
+
+    # predictive, orthogonal and cumulative SSX
+    b = 0
+    for i in range(n):
+        for j in range(p):
+            v = tp[i] * pp[j]
+            x_rec[b] += v
+            # predictive
+            ssx_p += v * v
+            # orthogonal
+            q = x_rec[b]
+            ssx_o += q * q
+            # cumulative, total
+            ssx_c += (q + v) * (q + v)
+            b += 1
+
+    # orthogonal, predictive and total VIP
+    r_ssx_pc = ssx_p / ssx_c
+    ko = k / (ssx_o / ssx_c)
+    kp = k / r_ssx_pc
+    for j in range(p):
+        v = pp[j] * pp[j]
+        rj = tmp_vip_o[j] / ssx_c
+        vip_o[j] = sqrt(ko * rj)
+        vip_p[j] = sqrt(kp * (((v * ssx_p) / ssx_c) + v))
+        vip_tot[j] = sqrt(k * (v * r_ssx_pc + rj + v))
+
+    free(x_rec)
+    free(tmp_vip_o)
 
 
 @cython.wraparound(False)
@@ -366,7 +422,7 @@ def summary_opls(double[:, ::1] x, double[::1] y, double[:, ::1] pred_scores,
         Py_ssize_t na = <ssize_t> num_pc - 1
         double * w = <double *> calloc(p, sizeof(double))
         double * rec_x_c = <double *> calloc(p * n, sizeof(double))
-        double * rec_y_c = <double *> calloc(n, sizeof(double))
+        double * rec_y_c = <double *> malloc(n * sizeof(double))
         double[::1] r2x = np.zeros(num_pc, dtype=DTYPE_F)
         double[::1] r2y = np.zeros(num_pc, dtype=DTYPE_F)
         double[::1] cov = np.zeros(p, dtype=DTYPE_F)
@@ -426,3 +482,47 @@ def summary_opls(double[:, ::1] x, double[::1] y, double[:, ::1] pred_scores,
     free(rec_y_c)
 
     return np.asarray(cov), np.asarray(corr), np.asarray(r2x), np.asarray(r2y)
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def opls_vip(double[:, ::1] tortho, double[:, ::1] portho, double[::1] tp, double[::1] pp):
+    """
+    Calculates VIPs of OPLS.
+
+    Parameters
+    ----------
+    tortho: np.ndarray
+        Orthogonal scores T_O
+    portho: np.ndarray
+        Orthogonal loadings T_O
+    tp: np.ndarray
+        Predictive scores
+    pp: np.ndarray
+        Predictive loadings
+
+    Returns
+    -------
+        Orthogonal, predictive and total VIPs
+
+    References
+    ----------
+    [1] Galindo-Prieto B, et al. Variable influence on projection (VIP)
+        for orthogonal projections to latent structures (OPLS).
+        J Chemometrics. 2014, 28(8), 623-632.
+
+    Notes
+    -----
+        Here, only VIPs from orthonomal loadings P were implemented,
+        i.e., VIP4 of ref, which is recommended.
+
+    """
+    cdef:
+        Py_ssize_t p = pp.shape[0]
+        double[::1] vip_o = np.zeros(p, dtype=DTYPE_F)
+        double[::1] vip_p = np.zeros(p, dtype=DTYPE_F)
+        double[::1] vip_t = np.zeros(p, dtype=DTYPE_F)
+
+    vip_(tortho, portho, tp, pp, vip_o, vip_p, vip_t)
+
+    return np.asarray(vip_o), np.asarray(vip_p), np.asarray(vip_t)

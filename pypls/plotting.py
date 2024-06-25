@@ -255,6 +255,69 @@ class Plots:
         else:
             plt.show()
 
+    def vip_plot(self, xname="coef", save_plot=False, file_name=None) -> None:
+        """
+        Generates volcano plot-like using VIP and coefficients or
+        correlation.
+
+        Parameters
+        ----------
+        xname: str
+            x values for x-axis of the plot, can be "coef" for
+            coefficients, or "corr" for correlation.
+            Defaults to "coef".
+        save_plot: bool
+            Whether the plot should be saved. Default is False.
+        file_name
+            File name for saving the plot.
+
+        Raises
+        ------
+        ValueError
+
+        """
+        if not isinstance(xname, str):
+            raise ValueError("Expected string for xname, got type "
+                             f"{type(xname)} {xname}.")
+        if xname not in ("coef", "corr"):
+            raise ValueError(f"Expected 'coef' or 'corr', got {xname}.")
+
+        if xname == "coef":
+            xvals = self._model.coefcs
+            xlabel = "CoeffCS[1]"
+        else:
+            xvals = self._model.correlation
+            xlabel = "p(corr)[1]"
+
+        if self._model.use_opls:
+            ylabel = f"VIP[{self._model.optimal_component_num}+1]"
+        else:
+            ylabel = "VIP"
+
+        vips = self._model.vip
+
+        fig, ax = plt.subplots(figsize=(6, 5))
+        ix = vips >= 1.
+        _ = ax.plot(xvals[ix], vips[ix],
+                    "o", mfc="lightcoral", mec="firebrick", ms=5., mew=1.,
+                    alpha=0.8)
+        _ = ax.plot(xvals[~ix], vips[~ix],
+                    "o", mec="darkgray", mfc="lightgray", ms=5., alpha=0.6)
+        ax.grid(visible=True, c="silver", ls="--", alpha=0.6)
+        ax.set_xlabel(f"{xlabel}", fontsize=16, fontname="Times New Roman")
+        ax.set_ylabel(f"{ylabel}", fontsize=16, fontname="Times New Roman")
+
+        plt.tight_layout()
+
+        # save the plot
+        if save_plot:
+            if not file_name.endswith(".png"):
+                file_name += ".png"
+            plt.savefig(file_name, dpi=1200, bbox_inches="tight")
+            plt.close()
+        else:
+            plt.show()
+
     def permutation_plot(self, save_plot=False, file_name=None) -> None:
         """
         Creates permutation plot.
