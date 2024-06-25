@@ -34,6 +34,7 @@ cdef void correct_fit_(double[:, ::1] x, double[::1] y, int num_comp,
         double * p_p = <double *> malloc(p * sizeof(double))
         double[::1] w = np.zeros(p, dtype=DTYPE_F)
         double[::1] t = np.zeros(n, dtype=DTYPE_F)
+        double[::1] u = np.zeros(n, dtype=DTYPE_F)
         double norm_y, tv, c, wnorm, tnorm, wv, pv, tc, tk
 
     # X-y variations
@@ -60,7 +61,7 @@ cdef void correct_fit_(double[:, ::1] x, double[::1] y, int num_comp,
         tp[i] = tv
 
     # components
-    c = nipals_c(x, y, tol, max_iter, w, t)
+    c = nipals_c(x, y, tol, max_iter, w, t, u)
     tv = 0.
     for i in range(n):
         tv += t[i] * t[i]
@@ -130,7 +131,7 @@ cdef void correct_fit_(double[:, ::1] x, double[::1] y, int num_comp,
         y_weight[nc] = tc / tnorm
 
         # next component
-        c = nipals_c(x, y, tol, max_iter, w, t)
+        c = nipals_c(x, y, tol, max_iter, w, t, u)
         tv = 0.
         for i in range(n):
             tv += t[i] * t[i]

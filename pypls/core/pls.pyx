@@ -27,11 +27,12 @@ cdef void pls_(double[:, ::1] x, double[::1] y, int num_comp, double tol,
         double * px = <double *> calloc(p, sizeof(double))
         double[::1] w = np.zeros(p, dtype=DTYPE_F)
         double[::1] t = np.zeros(n, dtype=DTYPE_F)
+        double[::1] u = np.zeros(n, dtype=DTYPE_F)
         double c, tk
 
     # iterate through components
     for nc in range(num_comp):
-        c = nipals_c(x, y, tol, max_iter, w, t)
+        c = nipals_c(x, y, tol, max_iter, w, t, u)
         # loadings
         tk = 0.
         for i in range(n):
