@@ -4,6 +4,11 @@ high-dimensional data derived from, for example, mass spectrometry
 in metabolomics. The visualization of score plots, S-plot, jack-knife
 confidence intervals for loading profile, and mis-classification number
 in cross validation are also implemented.
+# Important Update
+Starting from ```version 1.0.0```, heavy calculations, *e.g.*, NIPALS of PLS/OPLS, 
+calculations of scores and loadings *etc.*, are implemented by **[Cython](https://github.com/cython/cython)**.
+This implementation can significantly speed up the calculations, especially for
+permutation tests.
 ## Prerequisites
 This package is created by ```Python 3.7```, and recently tested by `Python 3.10`, with the following packages
 required:
@@ -12,9 +17,10 @@ numpy 1.17.2
 scipy 1.3.1
 matplotlib 3.1.3
 tqdm 4.64.0
+Cython 3.0
 ```
 All of these or newer version packages can be installed by using ``pip``.
-## Important
+## Important Note
 This package is only workable for binary classifications. Thus, if three or
 more classes are in the data, this package can't handle that. An alternative
 way is pair-wise classifications. As *Prof. Richard G. Brereton*
@@ -24,15 +30,18 @@ for PLS.
 ## Install
 The latest release can be downloaded
 [**here**](https://github.com/DongElkan/pypls/releases).
-Uncompress the package and set `Python` working directory there.
-Since current version is not packaged, all modules must be run
-under the working directory.
-## Running the codes
+Uncompress the package. In command line, *e.g.*, ```Command Prompt``` in Windows,
+```terminal``` in iOS, run
+```
+python -m setup install
+```
+This will compile all ``cython`` codes on the OS, install the package, and run the package using any tool.
+## Run `pypls`
 ```
 # import cross validation module
-import cross_validation
+from pypls import cross_validation
 # import plotting functions
-import plotting
+from pypls import plotting
 ``` 
 * ##### Initialize cross validation object for 10-fold cross validation using OPLS-DA.
     ```
@@ -40,7 +49,7 @@ import plotting
     ```
     Parameters:  
     `kfold`: Fold in cross validation. For leave-one-out cross validation,
-    set it to `n`, is the number of samples.  
+    set it to `n`, the number of samples.  
     `estimator`: The classifier, valid values are `opls` and `pls`. Defaults to `opls`.  
     `scaler`: scaling of variable matrix.    
      * `uv`: zero mean and unit variance scaling.  
@@ -76,9 +85,9 @@ package adopts same strategy, which uses
    > **IMPORTANT**  
    > _p_ value is calculated as <sup>[7]</sup>  
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation error rate <= normal error rate + 1) / (n + 1)  
-if misclassification rate (_i.e._, parameter `error`) is used as the metric, or  
+    if misclassification rate (_i.e._, parameter `error`) is used as the metric, or  
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation Q2 >= normal Q2 + 1) / (n + 1)  
-if Q2 (_i.e._, parameter `q2`) is used, and `n` is the number of permutations.
+    if Q2 (_i.e._, parameter `q2`) is used, and `n` is the number of permutations.
 * ##### Visualization of results.
     ```
     # construct the plotting object
@@ -94,7 +103,7 @@ if Q2 (_i.e._, parameter `q2`) is used, and `n` is the number of permutations.
     ```
     > **NOTE**  
     For OPLS-DA, predictive scores `tp` vs the first orthogonal scores `to`
-will be shown; for PLS, the first and second component will be shown.
+    will be shown; for PLS, the first and second component will be shown.
   * S-plot (only suitable for OPLS-DA).
     ```
     plots.splot()
@@ -103,21 +112,30 @@ will be shown; for PLS, the first and second component will be shown.
     ```
     means, intervals = plots.jackknife_loading_plot(alpha=0.05)
     ```
-    Where `alpha` is significance level, default is `0.05`.
+    Where `alpha` is significance level, defaults to `0.05`.
     `means` are mean loadings, and `intervals` are
     Jack-knife confidence intervals.  
-  * Permutation test plot
+  * VIP<sup>[9, 10]</sup> plot
     ```
-    plots.permutation_test(metric="q2")
+    cv.vip_plot(xname="coef")
     ```
+    This will show coefficients obtained from regression of centered and scaled
+    data matrix `X` to scaled `y` and against VIP (variable importance/influence
+    on projection), corresponding to *CoeffCS vs VIP* in SIMCA.
     Parameters:
-    * `metrics`: the metric used to show the permutation test results. Valid
-      values are:
-      * `"q2"`: Q2.
-      * `"error"`: Mis-classification error rate.
+    * `xname`: the *x data vs* VIPs. Valid values are:
+      * `"coef"`: CoeffCS, centered and scaled coefficients.
+      * `"corr"`: Correlation scaled loading, *i.e.*, `p(corr)`.
+    > **NOTE**  
+    For OPLS-DA, the VIP<sub>4,tot</sub> of ref [10](#references) is used as 
+    the VIP values of the plot.
+  * Permutation plot<sup>[8]</sup>
+    ```
+    plots.permutation_test()
+    ```
     
-    This will generate permutation test plot, _Correlation of permuted y to 
-    original y_ vs _Model metric_, with a regression line.
+    This will generate a permutation test plot, _Correlation of permuted y to 
+    original y_ vs _R2_ and _Q2_, with a regression line.
   * Distribution of the metrics obtained from permutation test
     ```
     plots.plot_permutation_dist(metric="q2")
@@ -134,8 +152,8 @@ will be shown; for PLS, the first and second component will be shown.
     
    > **NOTE**  
    > For all above plots, set `save_plot=True` and `file_name=some_string.png`
-can save each plot to `some_string.png` with `dpi=1200`.
-5. Model assessment.
+   can save each plot to `some_string.png` with `dpi=1200`.
+* ##### Model assessment.
     ```
     # R2X
     cv.R2X_cum
@@ -148,12 +166,19 @@ can save each plot to `some_string.png` with `dpi=1200`.
     ```
    To check the `R2X` and `R2y` of the optimal component, _i.e._,
 `cv.optimal_component_num`, call `cv.R2X` and `cv.R2y`.
-6. Access other metrics.
+* ##### Access other metrics.
     * Cross validated predictive scores: `cv.scores`
     * Cross validated predictive loadings: `cv.loadings_cv`
-    * Optimal number of components determined by cross
-    validation: `cv.optimal_component_num`
-7. Prediction of new data.
+    * Optimal number of components determined by cross validation: `cv.optimal_component_num`
+    * VIP values: `cv.vip`
+    * Index of variables used for the analysis: `cv.used_variable_index`
+    > **NOTE**  
+    In the analysis, the variable that has a single value, which happens when 
+    all values are missing, is excluded. Therefore, to map the values of, *e.g.*, 
+    `cv.loadings_cv` and `cv.vip` to corresponding variable names, the index of
+    variables must be output so that, taking VIP values for instance,
+    `cv.vip[i]` is the VIP value of <ins>`cv.used_variable_index[i]`th</ins> variable.
+* ##### Prediction of new data.
     ```
     predicted_scores = cv.predict(X, return_scores=False)
     ```
@@ -170,7 +195,7 @@ can save each plot to `some_string.png` with `dpi=1200`.
     print([cv.groups[g] for g in predicted_groups])
     ```
     Set `return_scores=True` will return predictive scores for OPLS.
-8. Other methods.  
+* ##### Other methods.  
     `cv` provides a method `reset_optimal_num_component` to reset
     the optimal number of components manually, instead of defaultedly
     at the minimal number of mis-classification.
@@ -206,4 +231,13 @@ Data (Pre-) Processing and Validation. *Anal Chem*. 2006, 78, 2, 567–574.
 *J Mach Learn Res*. 2010, 11, 1833−1863.
 [Link](https://www.jmlr.org/papers/v11/ojala10a.html)  
 [7] North BV, *et al*. A Note on the Calculation of Empirical P Values from
-Monte Carlo Procedures. *Am J Hum Genet.* 2002, 71(2), 439–441. [Link](https://www.jmlr.org/papers/v11/ojala10a.html)
+Monte Carlo Procedures. *Am J Hum Genet.* 2002, 71(2), 439–441. [Link](https://www.jmlr.org/papers/v11/ojala10a.html)  
+[8] Lindgren F, *et al*. Model validation by permutation tests: Applications
+ to variable selection. *J Chemometrics*. 1996, 10, 521-532. [Link](https://analyticalsciencejournals.onlinelibrary.wiley.com/doi/10.1002/%28SICI%291099-128X%28199609%2910%3A5/6%3C521%3A%3AAID-CEM448%3E3.0.CO%3B2-J)  
+[9] Wold S, *et al*. PLS—partial least-squares projections to latent structures.
+In 3D QSAR in Drug Design, Theory Methods and Applications, H Kubinyi (eds.). 
+ESCOM Science Publishers: Leiden, 1993, 523–550.
+[10] Galindo-Prieto B, *et al*. Variable influence on projection (VIP) for
+orthogonal projections to latent structures (OPLS). *J Chemometrics*. 2014,
+28(8), 623-632. [Link](https://analyticalsciencejournals.onlinelibrary.wiley.com/doi/full/10.1002/cem.2627)
+

@@ -192,9 +192,9 @@ class Plots:
         loading_mean = self._model.loadings_cv.mean(axis=0)
         loading_std = self._model.loadings_cv.std(axis=0)
         # unzero mean and standard deviation
-        val_ix: np.ndarray = (loading_mean == 0.) & (loading_std == 0.)
-        loading_mean = loading_mean[~val_ix]
-        loading_std = loading_std[~val_ix]
+        val_ix: np.ndarray = self._model.used_variable_index
+        loading_mean = loading_mean[val_ix]
+        loading_std = loading_std[val_ix]
         # critical value
         t_critic = stats.t.ppf(1 - (alpha / 2), self._model.kfold - 1)
         # jackknife confidence interval

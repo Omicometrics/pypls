@@ -43,7 +43,7 @@ cdef int scale_x_class_(double[:, ::1] x, double[::1] y, int ntrains, int tag,
             if ts - tm > 0.:
                 sel_var_index[pj] = <int> j
                 vec_minus[pj] = tm
-                vec_div[pj] = ts
+                vec_div[pj] = ts - tm
                 pj += 1
     else:
         # autoscaling, pareto scaling or centering
@@ -125,7 +125,7 @@ cdef int scale_x_reg_(double[:, ::1] x, int ntrains, int tag,
             if ts - tm > 0.:
                 sel_var_index[pj] = <int> j
                 vec_minus[pj] = tm
-                vec_div[pj] = ts
+                vec_div[pj] = ts - tm
                 pj += 1
     else:
         # autoscaling, pareto scaling or centering

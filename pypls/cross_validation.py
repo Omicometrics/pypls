@@ -472,7 +472,7 @@ class CrossValidation:
         return self.estimator.corr
 
     @property
-    def covariance(self):
+    def covariance(self) -> np.ndarray:
         """
         Covariance
 
@@ -556,7 +556,7 @@ class CrossValidation:
         return self._mis_classifications
 
     @property
-    def used_variable_index(self):
+    def used_variable_index(self) -> np.ndarray:
         """
 
         Returns
@@ -568,7 +568,7 @@ class CrossValidation:
         return self.scaler.variable_index
 
     @property
-    def permutation_q2(self):
+    def permutation_q2(self) -> np.ndarray:
         """
 
         Returns
@@ -586,7 +586,7 @@ class CrossValidation:
         return self._perm_q2
 
     @property
-    def permutation_r2(self):
+    def permutation_r2(self) -> np.ndarray:
         """
 
         Returns
@@ -604,7 +604,7 @@ class CrossValidation:
         return self._perm_r2
 
     @property
-    def permutation_error(self):
+    def permutation_error(self) -> np.ndarray:
         """
 
         Returns
@@ -622,7 +622,7 @@ class CrossValidation:
         return self._perm_err
 
     @property
-    def correlation_permute_y(self):
+    def correlation_permute_y(self) -> np.ndarray:
         """
 
         Returns
@@ -640,14 +640,36 @@ class CrossValidation:
         return self._corr_y_perms
 
     @property
-    def vip(self):
+    def vip(self) -> np.ndarray:
         """
         Returns VIPs of variables
 
         """
         return self._vip
 
-    def p(self, metric="q2"):
+    @property
+    def num_samples(self) -> int:
+        """
+        Returns number of samples.
+
+        Returns
+        -------
+
+        """
+        return self._n
+
+    @property
+    def num_variables(self) -> int:
+        """
+        Returns number of samples.
+
+        Returns
+        -------
+
+        """
+        return self._p
+
+    def p(self, metric="q2") -> float:
         """
         Calculates the significance of the constructed model by
         permutation test.
@@ -727,9 +749,10 @@ class CrossValidation:
 
         # coefficients of centered and scaled X
         estimator, _ = self._create_scaler_estimator()
-        scaler = pretreatment.Scaler("uv")
-        x_uv = scaler.fit(x[:, self.scaler.variable_index], y)
-        estimator.fit(x_uv.copy(), y.copy(), npc)
+        scaler = pretreatment.Scaler(scaler="uv", fit_type="balanced")
+        ys = (y - y.mean()) / y.std()
+        x_uv = scaler.fit(x[:, self.scaler.variable_index], ys)
+        estimator.fit(x_uv.copy(), ys.copy(), npc)
         self._coefcs = estimator.coefs[self._opt_component]
 
     def _reset_y(self, y) -> np.ndarray:

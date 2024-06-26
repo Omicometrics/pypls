@@ -4,7 +4,7 @@ Preprocess data matrix.
 import numpy as np
 from typing import Optional
 
-from .core import scale_x_class
+from .core import scale_x_class, scale_x_reg
 
 
 class Scaler:
@@ -17,10 +17,15 @@ class Scaler:
         Method for scaling, "uv" for unit variance, "pareto" for
         pareto scaling, "mean" for mean scaling and "minmax" for
         minmax scaling. Default is "pareto".
+    fit_type: str
+        Whether scale data matrix based on the distribution of y
+        labels.
+            Unbalanced: The classes are unbalanced.
+            Balanced: The classes are balanced.
 
     """
 
-    def __init__(self, scaler="pareto"):
+    def __init__(self, scaler="pareto", fit_type: str = "unbalanced"):
         if scaler == "mean":
             self.scaler_tag: int = 1
         elif scaler == "pareto":
@@ -29,12 +34,18 @@ class Scaler:
             self.scaler_tag: int = 3
         elif scaler == "minmax":
             self.scaler_tag: int = 4
+        else:
+            raise ValueError("Expected Scaler type 'uv', 'pareto', 'mean' or "
+                             f"'minmax', got {scaler}.")
+
+        self.fit_balanced: bool = fit_type == "balanced"
 
         self._center: Optional[np.ndarray] = None
         self._normalizer: Optional[np.ndarray] = None
         self._var_index: Optional[np.ndarray] = None
 
-    def fit(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+    def fit(self, x: np.ndarray, y: np.ndarray)\
+            -> np.ndarray:
         """
         Fits a scaler model.
 
@@ -50,7 +61,10 @@ class Scaler:
 
         """
         xs: np.ndarray = np.ascontiguousarray(x.copy())
-        xs, ix, center, normalizer = scale_x_class(xs, y, self.scaler_tag)
+        if not self.fit_balanced:
+            xs, ix, center, normalizer = scale_x_class(xs, y, self.scaler_tag)
+        else:
+            xs, ix, center, normalizer = scale_x_reg(xs, self.scaler_tag)
         self._center = center
         self._normalizer = normalizer
         self._var_index = ix
