@@ -1,13 +1,13 @@
+import unittest
 import numpy as np
-from unittest import TestCase
 
-from .nipals import nipals
-from .pls import pls_c, pls_vip
+from pypls.core.nipals import nipals
+from pypls.core.pls import pls_c, pls_vip
 
 import matplotlib.pyplot as plt
 
 
-class TestPLS(TestCase):
+class TestPLS(unittest.TestCase):
     def setUp(self):
         self.x = np.ascontiguousarray([[18.7, 26.8, 42.1, 56.6, 70.0, 83.2],
                                        [31.3, 33.4, 45.7, 49.3, 53.8, 55.3],
@@ -25,6 +25,21 @@ class TestPLS(TestCase):
             dtype=np.float64
         )
 
+        # from RG Brereton's book:
+        # Chemometrics : data driven extraction for science. 2018
+        self.class_x = np.ascontiguousarray([[0.847, 1.322], [0.929, 0.977],
+                                             [1.020, 1.547], [0.956, 0.842],
+                                             [1.045, 1.687], [1.059, 1.363],
+                                             [0.860, 2.876], [0.973, 2.383],
+                                             [0.680, 0.201], [1.171, 1.964],
+                                             [1.428, 1.226], [1.372, 0.982],
+                                             [1.118, 0.616], [0.900, 0.266],
+                                             [1.766, 1.453], [1.273, 0.580],
+                                             [1.298, 0.929], [1.478, 1.018],
+                                             [1.388, 0.858], [1.081, 0.584]],
+                                            dtype=np.float64)
+        self.class_y = np.fromiter([1] * 10 + [-1] * 10, dtype=np.float64)
+
     def test_nipals(self):
         w, t, c = nipals(self.x, self.y)
         self.assertTrue((np.linalg.norm(w) - 1.) <= 1e-6)
@@ -39,9 +54,18 @@ class TestPLS(TestCase):
         r2 = (1. - ((ys - yp[:, num_comp-1]) ** 2).sum()/(ys ** 2).sum())
         self.assertTrue(abs(r2 - 0.996270) <= 0.0001)
 
-        # fig, ax = plt.subplots()
-        # ax.plot(ys, yp[:, num_comp - 1], ".")
-        # plt.show()
+        xs = self.class_x - self.class_x.mean(axis=0)
+        t, w, p, c, coefs = pls_c(xs.copy(), self.class_y.copy(), 2)
+        coefs_r = np.fromiter([-2.646, 0.738], np.float64)
+        self.assertTrue(np.allclose(coefs_r, coefs[1], atol = 0.01))
+        x6_r = np.ascontiguousarray([[-0.073, 0.179]], np.float64)
+        self.assertTrue(np.allclose(xs[5], x6_r[0], atol = 0.01))
+        py = np.dot(x6_r, coefs[1])
+        self.assertTrue(abs(py[0] - 0.326) <= 0.001)
+
+        fig, ax = plt.subplots()
+        ax.plot(ys, yp[:, num_comp - 1], ".")
+        plt.show()
 
     def test_pls_vip(self):
         xs = (self.x - self.x.mean(axis=0)) / self.x.std(axis=0)

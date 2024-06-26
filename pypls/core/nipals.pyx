@@ -12,8 +12,8 @@ np.import_array()
 @cython.boundscheck(False)
 @cython.wraparound(False)
 @cython.cdivision(True)
-cdef double nipals_c(double[:, ::1] x, double[::1] y, double tol,
-                     int max_iter, double[::1] w, double[::1] t):
+cdef double nipals_c(double[:, ::1] x, double[::1] y, double tol, int max_iter,
+                     double[::1] w, double[::1] t, double[::1] u):
 
     cdef:
         Py_ssize_t i, j
@@ -21,7 +21,6 @@ cdef double nipals_c(double[:, ::1] x, double[::1] y, double tol,
         Py_ssize_t p = x.shape[1]
         int niter = 0
         double * tmp_w = <double *> calloc(p, sizeof(double))
-        double * u = <double *> malloc(n * sizeof(double))
         double d = tol * 10.
         double c = 0.
         double unorm, wnorm, tnorm, tk, ck, uk, d1, d2
@@ -75,7 +74,6 @@ cdef double nipals_c(double[:, ::1] x, double[::1] y, double tol,
         niter += 1
 
     free(tmp_w)
-    free(u)
 
     return c
 
@@ -118,8 +116,9 @@ def nipals(double[:, ::1] x, double[::1] y, double tol=1e-10, int max_iter=1000)
         Py_ssize_t p = x.shape[1]
         double[::1] w = np.zeros(p, dtype=np.float64)
         double[::1] t = np.zeros(n, dtype=np.float64)
+        double[::1] u = np.zeros(n, dtype=np.float64)
         double c
 
-    c = nipals_c(x, y, tol, max_iter, w, t)
+    c = nipals_c(x, y, tol, max_iter, w, t, u)
 
     return np.asarray(w), np.asarray(t), c

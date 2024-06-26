@@ -4,13 +4,12 @@ Perform cross validation.
 import collections
 import typing
 import numpy as np
-import numpy.linalg as la
 
-from core import kfold_cv_opls
+from .core import kfold_cv_opls, kfold_cv_pls, kfold_prediction
 
-import pretreatment
-from pls import PLS
-from opls import OPLS
+from . import pretreatment
+from .pls import PLS
+from .opls import OPLS
 
 import tqdm
 
@@ -47,33 +46,25 @@ class CrossValidation:
                  tol=1.e-10, max_iter=1000):
         # number of folds
         self.kfold: int = kfold
-        self._scaler_tag: typing.Optional[int] = None
-        if scaler == "mean":
-            self._scaler_tag = 1
-        elif scaler == "pareto":
-            self._scaler_tag = 2
-        elif scaler == "uv":
-            self._scaler_tag = 3
-        elif scaler == "minmax":
-            self._scaler_tag = 4
         self._tol: float = tol
         self._max_iter: int = max_iter
         self._scaler_param: str = scaler
-        self._estimator_param: str = estimator
+        self.valid_for_splot: bool = scaler in ("pareto", "mean")
+        self.estimator_name: str = estimator
+        self.use_opls: bool = estimator == "opls"
         # estimator
         f_estimator, f_scaler = self._create_scaler_estimator()
-        self.estimator = f_estimator
-        self.scaler = f_scaler
-        self.estimator_id = estimator
+        self.estimator: [PLS | OPLS] = f_estimator
+        self.scaler: [pretreatment.Scaler] = f_scaler
         # initialize other attributes, but should be HIDDEN
-        self._ypred: typing.Optional[np.ndarray] = None
         self._Tortho: typing.Optional[np.ndarray] = None
         self._Tpred: typing.Optional[np.ndarray] = None
-        self._ssx: typing.Optional[dict] = None
-        self._ssy: typing.Optional[list] = None
-        self._pressy: typing.Optional[np.ndarray] = None
         self._n: typing.Optional[int] = None
-        self._pcv: typing.Optional[dict] = None
+        self._p: typing.Optional[int] = None
+        self._pcv: typing.Optional[np.ndarray] = None
+        self._pcv_ortho: typing.Optional[np.ndarray] = None
+        self._cv_num_vars: typing.Optional[np.ndarray] = None
+        self._cv_preds: typing.Optional[np.ndarray] = None
         self._opt_component: typing.Optional[int] = None
         self._mis_classifications: typing.Optional[np.ndarray] = None
         self._q2: typing.Optional[np.ndarray] = None
@@ -81,13 +72,14 @@ class CrossValidation:
         self._x: typing.Optional[np.ndarray] = None
         self.y: typing.Optional[np.ndarray] = None
         self.groups: typing.Optional[dict] = None
-        self._used_variable_index: typing.Optional[np.ndarray] = None
-        self._r2x_cum: typing.Optional[float] = None
-        self._r2y_cum: typing.Optional[float] = None
+        self._r2xcorr: typing.Optional[np.ndarray] = None
+        self._r2xyo: typing.Optional[np.ndarray] = None
         self._corr_y_perms: typing.Optional[np.ndarray] = None
         self._perm_q2: typing.Optional[np.ndarray] = None
+        self._perm_r2: typing.Optional[np.ndarray] = None
         self._perm_err: typing.Optional[np.ndarray] = None
         self._vip: typing.Optional[np.ndarray] = None
+        self._coefcs: typing.Optional[np.ndarray] = None
 
     def fit(self, x, y):
         """
@@ -111,74 +103,35 @@ class CrossValidation:
         # set the labels in y to 0 and 1, and name the groups using
         # the labels in y
         y = self._reset_y(y)
+        x = self._check_x(x)
+        scale_tag: int = self.scaler.scaler_tag
 
-        if self._estimator_param == "opls":
-            q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, n_opt, n0 = kfold_cv_opls(
-                x, y, self.kfold, self._scaler_tag, self._tol, self._max_iter)
-            self._opt_component = n_opt
-            self._mis_classifications = no_mcs
-            # Q2
-            self._q2 = q2
+        if self.use_opls:
+            (pred_y, q2, r2xyo, r2xcorr, no_mcs, t_o, t_p, p_p, p_o,
+             n_opt, n0) = kfold_cv_opls(x, y, self.kfold, scale_tag,
+                                        self._tol, self._max_iter)
             self._r2xcorr = r2xcorr
             self._r2xyo = r2xyo
-            self._Tpred = t_p
             self._Tortho = t_o
-            self._npc0 = n0
+            self._pcv_ortho = p_o
+        else:
+            pred_y, q2, no_mcs, t_p, p_p, n_opt, n0 = kfold_cv_pls(
+                x, y, self.kfold, scale_tag, self._tol, self._max_iter)
+
+        self._opt_component = n_opt
+        self._mis_classifications = no_mcs
+        self._pcv = p_p
+        self._cv_preds = pred_y
+        # Q2
+        self._q2 = q2
+        # predictive scores if OPLS is used, or scores if PLS is used
+        self._Tpred = t_p
+        self._npc0 = n0
 
         self._n = x.shape[0]
+        self._p = x.shape[1]
         self._x = x
         self.y = y
-
-
-        # max number of principal components
-        npc0 = min(n, p)
-        # preallocation
-        ypred, pressy = np.zeros((n, npc0)), np.zeros((n, npc0))
-        for train_index, test_index in self._split(y):
-            xtr, xte = x[train_index], x[test_index]
-            ytr, yte = y[train_index], y[test_index]
-
-            # check the data matrix to remove variables having only 1 unique
-            # value.
-            val_ix, xtr = self._check_x(xtr)
-            xte = xte[:, val_ix]
-
-            # scale matrix
-            xtr_scale = self.scaler.fit(xtr)
-            xte_scale = self.scaler.scale(xte)
-            ytr_scale = self.scaler.fit(ytr)
-            yte_scale = self.scaler.scale(yte)
-
-            # variances
-            ssy_tot = (yte_scale ** 2).sum()
-            ssx_tot = (xte_scale ** 2).sum()
-
-            # fit the model
-            npc = min(xtr.shape)
-            self.estimator.fit(xtr_scale.copy(), ytr_scale, n_comp=npc)
-            if npc < npc0:
-                npc0 = npc
-
-            # do prediction iterating through components
-            for k in range(1, npc+1):
-                # if OPLS is used, the test matrix should be corrected to
-                # remove orthogonal components
-                if self._estimator_param == "opls":
-                    xte_corr, tcorr = self.estimator.correct(
-                        xte_scale, n_component=k, return_scores=True
-                    )
-                    # prediction
-                    yp_k, tp_k = self.estimator.predict(
-                        xte_corr, n_component=k, return_scores=True
-                    )
-
-                else:
-                    # prediction
-                    yp_k = self.estimator.predict(xte_scale, n_component=k)
-
-                # predicted y
-                ypred[test_index, k-1] = yp_k
-                pressy[test_index, k-1] = (yp_k - yte_scale) ** 2
 
         # refit for a final model
         self._create_optimal_model(x, y)
@@ -208,8 +161,8 @@ class CrossValidation:
         #       data and the input data matrix.
         npc = self._opt_component + 1
         # scale the matrix
-        x = self.scaler.scale(x[:, self._used_variable_index])
-        if self._estimator_param == "opls":
+        x = self.scaler.scale(x[:, self.scaler.variable_index])
+        if self.use_opls:
             x = self.estimator.correct(x.copy(), n_component=npc)
             return self.estimator.predict(
                 x, n_component=npc, return_scores=return_scores
@@ -237,62 +190,40 @@ class CrossValidation:
             raise ValueError("Expected large positive integer >= 20, "
                              "got {}.".format(num_perms))
 
-        is_opls = self._estimator_param == "opls"
-
-        estimator, scaler = self._create_scaler_estimator()
+        atag: int = 1 if self.use_opls else 2
+        k: int = self.kfold
 
         # do permutation test
-        x = self._x[:, self._used_variable_index]
+        x = np.ascontiguousarray(self._x[:, self.scaler.variable_index],
+                                 np.float64)
         # center y
         y_center = self.y - self.y.mean()
         ssy_c = (y_center ** 2).sum()
         # optimal component number
         npc: int = self._opt_component + 1
         n: int = self.y.size
-        pred_y: np.ndarray = np.zeros(n, dtype=np.float64)
+        scale_tag: int = self.scaler.scaler_tag
 
         rnd_generator = np.random.default_rng()
 
         perm_q2: np.ndarray = np.zeros(num_perms, dtype=np.float64)
+        perm_r2: np.ndarray = np.zeros(num_perms, dtype=np.float64)
         perm_err: np.ndarray = np.zeros(num_perms, dtype=np.float64)
         perm_corr: np.ndarray = np.zeros(num_perms, dtype=np.float64)
         for i in tqdm.tqdm(range(num_perms), total=num_perms,
                            desc="Calculating permuted metrics"):
             # randomize labels
             ix = rnd_generator.permutation(n)
-            rnd_y = self.y[ix]
-            ssy: float = 0.
-            ssey: float = 0.
-            # fit the model using cross validation
-            for train_index, test_index in self._split(rnd_y):
-                xtr, xte = x[train_index], x[test_index]
-                ytr, yte = rnd_y[train_index], rnd_y[test_index]
-
-                # scale matrix
-                xtr_scale = scaler.fit(xtr)
-                xte_scale = scaler.scale(xte)
-                ytr_scale = scaler.fit(ytr)
-                yte_scale = scaler.scale(yte)
-
-                # variances
-                ssy += (yte_scale ** 2).sum()
-                # fitting the model
-                estimator.fit(xtr_scale.copy(), ytr_scale, n_comp=npc)
-                # prediction
-                if is_opls:
-                    xc = estimator.correct(xte_scale.copy(), n_component=npc)
-                    yp = estimator.predict(xc, n_component=npc)
-                else:
-                    yp = estimator.predict(xte_scale)
-                pred_y[test_index] = yp
-                ssey += ((yp - yte_scale) ** 2).sum()
-
-            pred_cls = (pred_y > 0.).astype(int)
-            perm_err[i] = np.count_nonzero((pred_cls - rnd_y) != 0) / n
-            perm_q2[i] = 1. - ssey / ssy
-            perm_corr[i] = abs(((y_center * y_center[ix]).sum()) / ssy_c)
+            ry = self.y[ix]
+            q2, r2, err = kfold_prediction(x, ry, k, npc, scale_tag, atag,
+                                           self._tol, self._max_iter)
+            perm_err[i] = err
+            perm_q2[i] = q2
+            perm_r2[i] = r2
+            perm_corr[i] = (((y_center * y_center[ix]).sum()) / ssy_c) ** 2
 
         self._perm_q2 = perm_q2
+        self._perm_r2 = perm_r2
         self._perm_err = perm_err
         self._corr_y_perms = perm_corr
 
@@ -322,6 +253,19 @@ class CrossValidation:
         self._create_optimal_model(self._x, self.y)
 
     @property
+    def coefcs(self) -> np.ndarray:
+        """
+        Returns the coefficients of centered and scaled X.
+
+        Returns
+        -------
+        np.ndarray
+            The coefficients of centered and scaled X.
+
+        """
+        return self._coefcs
+
+    @property
     def orthogonal_score(self) -> np.ndarray:
         """
         Returns cross validated orthogonal score.
@@ -337,9 +281,9 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._Tortho[:, self._opt_component]
+        return self._Tortho[self._opt_component]
 
     @property
     def predictive_score(self) -> np.ndarray:
@@ -357,9 +301,9 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._Tpred[:, self._opt_component]
+        return self._Tpred[self._opt_component]
 
     @property
     def scores(self) -> np.ndarray:
@@ -372,7 +316,7 @@ class CrossValidation:
             otherwise is the scores of X
 
         """
-        if self._estimator_param == "opls":
+        if self.use_opls:
             return self.predictive_score
         else:
             return self.estimator.scores_x
@@ -390,6 +334,19 @@ class CrossValidation:
         return float(self._q2[self._opt_component])
 
     @property
+    def r2(self) -> float:
+        """
+        Returns fitted R2 after determining the optimal number of
+        components.
+
+        Returns
+        -------
+        R2: float
+
+        """
+        return self.estimator.r2
+
+    @property
     def optimal_component_num(self) -> int:
         """
         Number of components determined by cross validation.
@@ -402,7 +359,7 @@ class CrossValidation:
         return self._opt_component + 1
 
     @property
-    def R2Xcorr(self) -> float:
+    def r2xcorr(self) -> float:
         """
         Returns
         -------
@@ -415,12 +372,12 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._r2xcorr[self._opt_component]
+        return float(self._r2xcorr[self._opt_component])
 
     @property
-    def R2XYO(self) -> float:
+    def r2xyo(self) -> float:
         """
         Returns
         -------
@@ -433,12 +390,12 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._r2xyo[self._opt_component]
+        return float(self._r2xyo[self._opt_component])
 
     @property
-    def R2X(self) -> float:
+    def r2x(self) -> float:
         """
 
         Returns
@@ -447,10 +404,10 @@ class CrossValidation:
             Modeled variation of X
 
         """
-        return self._r2x
+        return float(self.estimator.r2x[self._opt_component])
 
     @property
-    def R2y(self) -> float:
+    def r2y(self) -> float:
         """
 
         Returns
@@ -459,10 +416,10 @@ class CrossValidation:
             Modeled variation of y
 
         """
-        return self._r2y
+        return float(self.estimator.r2y[self._opt_component])
 
     @property
-    def R2X_cum(self) -> float:
+    def r2x_cum(self) -> float:
         """
         Cumulative fraction of the sum of squares explained up to the
         optimal number of principal components.
@@ -473,10 +430,10 @@ class CrossValidation:
             Cumulative fraction of the sum of squares explained
 
         """
-        return self._r2x_cum
+        return float(self.estimator.r2x_cum[self._opt_component])
 
     @property
-    def R2y_cum(self) -> float:
+    def r2y_cum(self) -> float:
         """
         Cumulative fraction of the sum of squares explained up to the
         optimal number of principal components.
@@ -487,7 +444,7 @@ class CrossValidation:
             Cumulative fraction of the sum of squares explained
 
         """
-        return self._r2y_cum
+        return float(self.estimator.r2y_cum[self._opt_component])
 
     @property
     def correlation(self) -> np.ndarray:
@@ -510,12 +467,12 @@ class CrossValidation:
         2008, 80, 115-122.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._corr
+        return self.estimator.corr
 
     @property
-    def covariance(self):
+    def covariance(self) -> np.ndarray:
         """
         Covariance
 
@@ -537,14 +494,14 @@ class CrossValidation:
         2008, 80, 115-122.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return self._cov
+        return self.estimator.cov
 
     @property
-    def loadings_cv(self):
+    def orthogonal_loadings_cv(self) -> np.ndarray:
         """
-        Loadings from cross validation.
+        Orthogonal loadings from cross validation.
 
         Returns
         -------
@@ -557,9 +514,21 @@ class CrossValidation:
             If OPLS / OPLS-DA is not used.
 
         """
-        if self._estimator_param != "opls":
+        if not self.use_opls:
             raise ValueError("This is only applicable for OPLS/OPLS-DA.")
-        return np.array(self._pcv[self._opt_component+1])
+        return self._pcv_ortho
+
+    @property
+    def loadings_cv(self) -> np.ndarray:
+        """
+        Loadings from cross validation. If OPLS / OPLS-DA is used, this
+        is the predictive loadings.
+
+        Returns
+        -------
+
+        """
+        return self._pcv
 
     @property
     def min_nmc(self) -> int:
@@ -587,7 +556,7 @@ class CrossValidation:
         return self._mis_classifications
 
     @property
-    def used_variable_index(self):
+    def used_variable_index(self) -> np.ndarray:
         """
 
         Returns
@@ -596,10 +565,10 @@ class CrossValidation:
             Indices of variables used for model construction
 
         """
-        return self._used_variable_index
+        return self.scaler.variable_index
 
     @property
-    def permutation_q2(self):
+    def permutation_q2(self) -> np.ndarray:
         """
 
         Returns
@@ -607,13 +576,35 @@ class CrossValidation:
         np.ndarray:
             Q2 array generated by permutation test.
 
+        Raises
+        ------
+        ValueError
+
         """
         if self._perm_q2 is None:
             raise ValueError("Permutation test has not been performed.")
         return self._perm_q2
 
     @property
-    def permutation_error(self):
+    def permutation_r2(self) -> np.ndarray:
+        """
+
+        Returns
+        -------
+        np.ndarray:
+            R2 array generated by permutation test.
+
+        Raises
+        ------
+        ValueError
+
+        """
+        if self._perm_r2 is None:
+            raise ValueError("Permutation test has not been performed.")
+        return self._perm_r2
+
+    @property
+    def permutation_error(self) -> np.ndarray:
         """
 
         Returns
@@ -621,13 +612,17 @@ class CrossValidation:
         np.ndarray:
             Misclassification error rates generated by permutation test.
 
+        Raises
+        ------
+        ValueError
+
         """
         if self._perm_err is None:
             raise ValueError("Permutation test has not been performed.")
         return self._perm_err
 
     @property
-    def correlation_permute_y(self):
+    def correlation_permute_y(self) -> np.ndarray:
         """
 
         Returns
@@ -635,12 +630,46 @@ class CrossValidation:
         np.ndarray:
             Correlation between permuted y and normal y.
 
+        Raises
+        ------
+        ValueError
+
         """
         if self._corr_y_perms is None:
             raise ValueError("Permutation test has not been performed.")
         return self._corr_y_perms
 
-    def p(self, metric="q2"):
+    @property
+    def vip(self) -> np.ndarray:
+        """
+        Returns VIPs of variables
+
+        """
+        return self._vip
+
+    @property
+    def num_samples(self) -> int:
+        """
+        Returns number of samples.
+
+        Returns
+        -------
+
+        """
+        return self._n
+
+    @property
+    def num_variables(self) -> int:
+        """
+        Returns number of samples.
+
+        Returns
+        -------
+
+        """
+        return self._p
+
+    def p(self, metric="q2") -> float:
         """
         Calculates the significance of the constructed model by
         permutation test.
@@ -652,6 +681,10 @@ class CrossValidation:
             model. "q2" and "error" are accepted as values.
             "q2": Q2
             "error": Misclassification error rate.
+
+        Raises
+        ------
+        ValueError
 
         Returns
         -------
@@ -675,9 +708,9 @@ class CrossValidation:
         return nb / nt
 
     @staticmethod
-    def _check_x(x) -> typing.Tuple[np.ndarray, np.ndarray]:
+    def _check_x(x) -> np.ndarray:
         """
-        Checks the valid variables to remove those with unique value.
+        Checks the valid variables.
 
         Parameters
         ----------
@@ -686,232 +719,41 @@ class CrossValidation:
 
         Returns
         -------
-        index: np.ndarray
-            Indices of valid variables
         x: np.ndarray
-            Valid data matrix
+            Valid data matrix with no NaNs and Infs.
 
         """
         # check nan and inf
-        has_nan = np.isnan(x).any(axis=0)
-        has_inf = np.isinf(x).any(axis=0)
-        idx, = np.where(~(has_nan | has_inf))
-        # check unique value
-        is_unique_value = np.absolute(
-            x[:, idx] - x[:, idx].mean(axis=0)
-        ).sum(axis=0) == 0
-        # index of valid variables
-        idx = idx[~is_unique_value]
+        x[np.isnan(x)] = 0.
+        x[np.isinf(x)] = 0.
+        return x
 
-        return idx, np.ascontiguousarray(x[:, idx], dtype=np.float64)
-
-    def _split(self, y) -> typing.Iterable:
-        """
-        Split total number of n samples into training and testing data.
-
-        Parameters
-        ----------
-        y: np.ndarray
-            Number of samples
-
-        Returns
-        -------
-        iterator
-
-        """
-        n, k = y.size, self.kfold
-        groups, counts = np.unique(y, return_counts=True)
-
-        # check the number
-        if counts.min() < k and n != k:
-            raise ValueError(f"The fold number {k} is larger than the least"
-                             f" group number {counts.min()}.")
-
-        indices = np.arange(n, dtype=int)
-        # leave one out cross validation
-        if n == k:
-            for i in indices:
-                yield np.delete(indices, i), [i]
-
-        # k fold cross validation
-        else:
-            group_index, blks = [], []
-            for g, nk in zip(groups, counts):
-                group_index.append(np.where(y == g)[0])
-                blks.append(nk // k if nk % k == 0 else nk // k + 1)
-            # splitting data
-            for i in range(k):
-                trains = np.ones(n, dtype=bool)
-                for blk, idx, nk in zip(blks, group_index, counts):
-                    trains[idx[blk * i: min(blk * (i + 1), nk)]] = False
-                yield indices[trains], indices[np.logical_not(trains)]
-
-    def _cal_vip(self) -> None:
-        """
-        Calculates variable importance in projection (VIP).
-        """
-        npc = self._opt_component + 1
-        p = self._x.shape[1]
-        w_weights: np.ndarray = np.zeros((npc, p), dtype=np.float64)
-        if self._scaler_param == "uv":
-            # already standardized to zero mean and unit variance,
-            # directly use the results
-            if self._estimator_param == "opls":
-                tp = self.estimator.predictive_score(npc)
-                ss_tp = np.dot(tp, tp)
-                # loadings
-                w = np.dot(tp, x)
-                self._cov = w / ss_tp
-                self._corr = w / (np.sqrt(ss_tp) * la.norm(x, axis=0))
-
-                # reconstruct variable matrix X
-                # from orthogonal corrections.
-                o_scores = self.estimator.orthogonal_scores
-                o_loads = self.estimator.orthogonal_loadings
-                p_scores = self.estimator.predictive_scores
-                p_loads = self.estimator.predictive_loadings
-                for i in range(npc):
-                    xrec = np.dot(o_scores[:, i][:, np.newaxis],
-                                  o_loads[:, i][np.newaxis, :])
-                    # from predictive scores
-                    xrec += np.dot(p_scores[:, i][:, np.newaxis],
-                                   p_loads[:, i][np.newaxis, :])
-                    r2x_pc[i] = ((x - xrec) ** 2).sum() / ssx
-
-                    # reconstruct dependent vector y
-                    yrec = p_scores[:, i] * self.estimator.weights_y[i]
-                    r2y_pc[i] = ((y - yrec) ** 2).sum() / ssy
-            else:
-                ssy_exp: float = 0.
-                for i in range(npc):
-                    yrec = np.dot(self.estimator.scores_x[:, i][:, np.newaxis],
-                                  self.estimator.weights_y[i])
-                    ssk = (yrec ** 2).sum()
-                    ssy_exp += ssk
-                    w_weights[i] = (self.estimator.weights_x[:, i] ** 2) * ssk
-                vips = np.sqrt(w_weights.sum(axis=0) * p / ssy_exp)
-        self._vip = vips.copy()
-
-    def _create_optimal_model(self, x, y) -> None:
+    def _create_optimal_model(self, x: np.ndarray, y: np.ndarray) -> None:
         """
         Create final model based on the optimal number of components.
         """
-        val_ix, x = self._check_x(x)
+        x = self._check_x(x.copy())
 
         # scale data matrix
-        y_scale = self.scaler.fit(y)
-        x_scale = self.scaler.fit(x)
+        x_scale = self.scaler.fit(x, y)
 
         # optimal component number
-        npc = self._opt_component+1
+        npc = self._opt_component + 1
 
         # fit the model
-        self.estimator.fit(x_scale.copy(), y_scale.copy(), n_comp=npc)
+        self.estimator.fit(x_scale.copy(), y.copy(), npc)
 
-        # summary the fitting
-        self._summary_fit(x_scale, y_scale)
+        # calculate VIPs
+        self.estimator.calculate_vip(npc)
+        self._vip = self.estimator.vip
 
-        # indices of variables used for model construction
-        self._used_variable_index = val_ix
-
-    def _summary_fit(self, x, y) -> None:
-        """
-
-        Parameters
-        ----------
-        x: np.ndarray
-            scaled variable matrix.
-        y: np.ndarray
-            scaled dependent variable
-
-        Returns
-        -------
-        CrossValidation object
-
-        """
-        npc = self._opt_component + 1
-        # Calculate covariance and correlation for variable importance
-        # assessment. Only works for OPLS/OPLS-DA
-        r2x_pc: np.ndarray = np.zeros(npc, dtype=np.float64)
-        r2y_pc: np.ndarray = np.zeros(npc, dtype=np.float64)
-        ssx: float = (x ** 2).sum()
-        ssy: float = (y ** 2).sum()
-        if self._estimator_param == "opls":
-            tp = self.estimator.predictive_score(npc)
-            ss_tp = np.dot(tp, tp)
-            # loadings
-            w = np.dot(tp, x)
-            self._cov = w / ss_tp
-            self._corr = w / (np.sqrt(ss_tp) * la.norm(x, axis=0))
-
-            # reconstruct variable matrix X
-            # from orthogonal corrections.
-            o_scores = self.estimator.orthogonal_scores
-            o_loads = self.estimator.orthogonal_loadings
-            p_scores = self.estimator.predictive_scores
-            p_loads = self.estimator.predictive_loadings
-            for i in range(npc):
-                xrec = np.dot(o_scores[:, i][:, np.newaxis],
-                              o_loads[:, i][np.newaxis, :])
-                # from predictive scores
-                xrec += np.dot(p_scores[:, i][:, np.newaxis],
-                               p_loads[:, i][np.newaxis, :])
-                r2x_pc[i] = ((x - xrec) ** 2).sum() / ssx
-
-                # reconstruct dependent vector y
-                yrec = p_scores[:, i] * self.estimator.weights_y[i]
-                r2y_pc[i] = ((y - yrec) ** 2).sum() / ssy
-        else:
-            for i in range(npc):
-                xrec = np.dot(self.estimator.scores_x[:, i][:, np.newaxis],
-                              self.estimator.loadings_x[:, i][np.newaxis, :])
-                yrec = np.dot(self.estimator.scores_x[:, i][:, np.newaxis],
-                              self.estimator.weights_y[i])
-                r2x_pc[i] = ((x - xrec) ** 2).sum() / ssx
-                r2y_pc[i] = ((y - yrec) ** 2).sum() / ssy
-
-        # r2x
-        self._r2x = 1. - r2x_pc[self._opt_component]
-        # r2y
-        self._r2y = 1. - r2y_pc[self._opt_component]
-        # cumulative r2x
-        self._r2x_cum = 1. - np.prod(r2x_pc)
-        # cumulative r2y
-        self._r2y_cum = 1. - np.prod(r2y_pc)
-
-    def _summary_cv(self) -> None:
-        """
-        Summary cross validation results to calculate metrics for
-        assessing the model.
-
-        Returns
-        -------
-        CrossValidation object
-
-        """
-        # number of mis-classifications
-        _pred_class = (self._ypred > 0).astype(float)
-        nmc = ((_pred_class - self.y[:, np.newaxis]) != 0).sum(axis=0)
-        j = int(np.argmin(nmc))
-        # optimal number of components
-        self._opt_component: int = j
-        self._mis_classifications = nmc
-        # Q2
-        self._q2 = 1. - self._pressy.sum(axis=0) / self._ssy
-        # metrics for OPLS
-        if self._estimator_param == "opls":
-            _, npc = _pred_class.shape
-            # r2xcorr, r2xyo
-            r2xcorr, r2xyo = [], []
-            for k in range(1, npc+1):
-                r2xcorr.append(
-                    sum(self._ssx[k]["corr"]) / sum(self._ssx[k]["total"])
-                )
-                r2xyo.append(
-                    sum(self._ssx[k]["xyo"]) / sum(self._ssx[k]["total"])
-                )
-            self._r2xcorr = r2xcorr
-            self._r2xyo = r2xyo
+        # coefficients of centered and scaled X
+        estimator, _ = self._create_scaler_estimator()
+        scaler = pretreatment.Scaler(scaler="uv", fit_type="balanced")
+        ys = (y - y.mean()) / y.std()
+        x_uv = scaler.fit(x[:, self.scaler.variable_index], ys)
+        estimator.fit(x_uv.copy(), ys.copy(), npc)
+        self._coefcs = estimator.coefs[self._opt_component]
 
     def _reset_y(self, y) -> np.ndarray:
         """
@@ -946,6 +788,9 @@ class CrossValidation:
             y_reset[y == label] = i
             groups[i] = label if isinstance(label, str) else str(int(label))
 
+        y_reset[y_reset == 0.] = -1.
+        groups[-1] = groups[0]
+
         self.groups = groups
         return y_reset
 
@@ -957,7 +802,7 @@ class CrossValidation:
         -------
 
         """
-        if self._estimator_param == "pls":
+        if not self.use_opls:
             return PLS(), pretreatment.Scaler(scaler=self._scaler_param)
-        if self._estimator_param == "opls":
+        if self.use_opls:
             return OPLS(), pretreatment.Scaler(scaler=self._scaler_param)

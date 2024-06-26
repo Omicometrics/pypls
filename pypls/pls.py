@@ -2,7 +2,7 @@ import numpy as np
 
 from typing import Optional
 
-from core import pls_c, pls_vip
+from .core import pls_c, pls_vip, summary_pls
 
 
 class PLS:
@@ -14,6 +14,12 @@ class PLS:
         self._C: Optional[np.ndarry] = None
         self.coefs: Optional[np.ndarry] = None
         self._vips: Optional[np.ndarray] = None
+
+        self.r2x: Optional[np.ndarray] = None
+        self.r2x_cum: Optional[np.ndarray] = None
+        self.r2y: Optional[np.ndarray] = None
+        self.r2y_cum: Optional[np.ndarray] = None
+        self.r2: Optional[float] = None
 
     def fit(self, x: np.ndarray, y: np.ndarray, num_comp: int) -> None:
         """
@@ -41,12 +47,24 @@ class PLS:
                              f"number of samples {n} or variables {p}.")
 
         t, w, p, c, coefs = pls_c(x.copy(), y.copy(), num_comp)
+
+        r2x, r2x_cum, r2y, r2y_cum = summary_pls(x, y, t, p, c, num_comp)
+
         # save results to matrix
         self._T = t
         self._P = p
         self._W = w
         self._C = c
         self.coefs = coefs
+
+        self.r2x = r2x
+        self.r2y = r2y
+        self.r2x_cum = r2x_cum
+        self.r2y_cum = r2y_cum
+
+        # calculate R2
+        yp = np.dot(x, coefs[num_comp - 1])
+        self.r2 = 1. - ((yp - y) ** 2).sum() / ((y - y.mean()) ** 2).sum()
 
     def predict(self, x, num_comp=None) -> np.ndarray:
         """
@@ -65,7 +83,7 @@ class PLS:
         np.ndarray
 
         """
-        npc: int = self.coefs.shape[1]
+        npc: int = self.coefs.shape[0]
         if num_comp is not None and num_comp > npc:
             raise ValueError(f"Number of components {num_comp} exceeds the "
                              f"determined number of components {npc}.")
@@ -76,7 +94,7 @@ class PLS:
 
         return np.dot(x, self.coefs[npc])
 
-    def calculate_vip(self) -> np.ndarray:
+    def calculate_vip(self, num_comp: int) -> None:
         """
         Calculates variable importance in projection.
 
@@ -86,7 +104,25 @@ class PLS:
             Variable importance in projection.
 
         """
-        return pls_vip(self._W, self._T, self._C)
+        npc: int = self._T.shape[0]
+        if num_comp > npc:
+            raise ValueError("The number of components input must not be "
+                             "larger than the maximum number of "
+                             f"components {npc}.")
+
+        self._vips = pls_vip(self._W[:num_comp], self._T[:num_comp],
+                             self._C[:num_comp])
+
+    @property
+    def vip(self) -> np.ndarray:
+        """
+        Variable importance in projection.
+
+        Returns
+        -------
+
+        """
+        return self._vips[-1]
 
     @property
     def scores_x(self) -> np.ndarray:
@@ -126,42 +162,6 @@ class PLS:
 
         """
         return self._C
-
-    @property
-    def weigths_x(self):
-        """
-
-        Returns
-        -------
-            np.ndarray
-                x weights
-
-        """
-        return self._W
-
-    @property
-    def weigths_x(self):
-        """
-
-        Returns
-        -------
-            np.ndarray
-                x weights
-
-        """
-        return self._W
-
-    @property
-    def weigths_x(self):
-        """
-
-        Returns
-        -------
-            np.ndarray
-                x weights
-
-        """
-        return self._W
 
     @property
     def weigths_x(self):

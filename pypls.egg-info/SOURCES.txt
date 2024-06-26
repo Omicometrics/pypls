@@ -1,0 +1,15 @@
+LICENSE
+README.md
+setup.py
+core/__init__.py
+core/cross_validation.c
+core/nipals.c
+core/opls.c
+core/pls.c
+core/test_cross_validation.py
+core/test_opls.py
+core/tests_pls.py
+pypls.egg-info/PKG-INFO
+pypls.egg-info/SOURCES.txt
+pypls.egg-info/dependency_links.txt
+pypls.egg-info/top_level.txt

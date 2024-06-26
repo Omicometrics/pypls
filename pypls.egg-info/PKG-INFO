@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: pypls
+Version: 1.0.3
+Summary: pypls: A package for statistical analysis using PLS.
+Author: Dong Nai-ping
+Author-email: naiping.dong@hotmail.com
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: End Users/Desktop
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Operating System :: Microsoft :: Windows :: Windows 10
+Classifier: License :: OSI Approved :: Apache License v2
+Classifier: Natural Language :: English
+License-File: LICENSE
