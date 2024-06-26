@@ -156,7 +156,7 @@ class OPLS:
         """
         if n_component is None or n_component > self.npc:
             n_component = self.npc
-        coef = self.coef[n_component - 1]
+        coef = self.coefs[n_component - 1]
 
         y = np.dot(x, coef)
         if return_scores:
@@ -194,9 +194,11 @@ class OPLS:
             n_component = self.npc
 
         if x.ndim == 1:
-            xc, t = correct_x_1d(x.copy(), self._Wortho, self._Portho)
+            xc, t = correct_x_1d(x.copy(), self._Wortho[:n_component],
+                                 self._Portho[:n_component])
         else:
-            xc, t = correct_x_2d(x.copy(), self._Wortho, self._Portho)
+            xc, t = correct_x_2d(x.copy(), self._Wortho[:n_component],
+                                 self._Portho[:n_component])
 
         if return_scores:
             return xc, t

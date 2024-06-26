@@ -85,7 +85,7 @@ package adopts same strategy, which uses
    > **IMPORTANT**  
    > _p_ value is calculated as <sup>[7]</sup>  
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation error rate <= normal error rate + 1) / (n + 1)  
-    if misclassification rate (_i.e._, parameter `error`) is used as the metric, or  
+    if mis-classification rate (_i.e._, parameter `error`) is used as the metric, or  
     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;_p_ = (No. of permutation Q2 >= normal Q2 + 1) / (n + 1)  
     if Q2 (_i.e._, parameter `q2`) is used, and `n` is the number of permutations.
 * ##### Visualization of results.
@@ -115,7 +115,7 @@ package adopts same strategy, which uses
     Where `alpha` is significance level, defaults to `0.05`.
     `means` are mean loadings, and `intervals` are
     Jack-knife confidence intervals.  
-  * VIP<sup>[9, 10]</sup> plot
+  * VIP <sup>[9, 10]</sup> plot
     ```
     cv.vip_plot(xname="coef")
     ```
@@ -129,7 +129,7 @@ package adopts same strategy, which uses
     > **NOTE**  
     For OPLS-DA, the VIP<sub>4,tot</sub> of ref [10](#references) is used as 
     the VIP values of the plot.
-  * Permutation plot<sup>[8]</sup>
+  * Permutation plot <sup>[8]</sup>
     ```
     plots.permutation_test()
     ```
@@ -164,8 +164,8 @@ package adopts same strategy, which uses
     # Number of mis-classifications
     cv.min_nmc
     ```
-   To check the `R2X` and `R2y` of the optimal component, _i.e._,
-`cv.optimal_component_num`, call `cv.R2X` and `cv.R2y`.
+   To check the `R2X` and `R2y` of the optimal component, _i.e._, 
+`cv.optimal_component_num`, run `cv.R2X` and `cv.R2y`.
 * ##### Access other metrics.
     * Cross validated predictive scores: `cv.scores`
     * Cross validated predictive loadings: `cv.loadings_cv`
@@ -218,7 +218,7 @@ taking the magic away. *J Chemometr*. 2014, 18, 213-225.
 Chemometr*. 2002, 16, 119-128.
 [Link](https://onlinelibrary.wiley.com/doi/abs/10.1002/cem.695)   
 [3] Trygg J, Wold S. O2-PLS, a two-block (X-Y) latent variable regression
-(LVR) method with a integral OSC filter. *J Chemometr*. 2003, 17, 53-64.
+(LVR) method with an integral OSC filter. *J Chemometr*. 2003, 17, 53-64.
 [Link](https://onlinelibrary.wiley.com/doi/abs/10.1002/cem.775)  
 [4] Wiklund S, *et al*. Visualization of GC/TOF-MS-Based Metabolomics
 Data for Identification of Biochemically Interesting Compounds Using

@@ -66,7 +66,7 @@ class PLS:
         yp = np.dot(x, coefs[num_comp - 1])
         self.r2 = 1. - ((yp - y) ** 2).sum() / ((y - y.mean()) ** 2).sum()
 
-    def predict(self, x, num_comp=None) -> np.ndarray:
+    def predict(self, x, n_component=None) -> np.ndarray:
         """
         Predicts the input data matrix.
 
@@ -74,7 +74,7 @@ class PLS:
         ----------
         x: np.ndarray
             x for prediction
-        num_comp: int
+        n_component: int
             Number of components. Defaults to None, which indicates that
             the number of components previously set will be used.
 
@@ -84,13 +84,13 @@ class PLS:
 
         """
         npc: int = self.coefs.shape[0]
-        if num_comp is not None and num_comp > npc:
-            raise ValueError(f"Number of components {num_comp} exceeds the "
-                             f"determined number of components {npc}.")
-        if num_comp is None:
+        if n_component is not None and n_component > npc:
+            raise ValueError(f"Number of components {n_component} exceeds "
+                             f"the determined number of components {npc}.")
+        if n_component is None:
             npc -= 1
         else:
-            npc = num_comp - 1
+            npc = n_component - 1
 
         return np.dot(x, self.coefs[npc])
 
