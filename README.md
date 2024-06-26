@@ -236,7 +236,7 @@ Monte Carlo Procedures. *Am J Hum Genet.* 2002, 71(2), 439–441. [Link](https:/
  to variable selection. *J Chemometrics*. 1996, 10, 521-532. [Link](https://analyticalsciencejournals.onlinelibrary.wiley.com/doi/10.1002/%28SICI%291099-128X%28199609%2910%3A5/6%3C521%3A%3AAID-CEM448%3E3.0.CO%3B2-J)  
 [9] Wold S, *et al*. PLS—partial least-squares projections to latent structures.
 In 3D QSAR in Drug Design, Theory Methods and Applications, H Kubinyi (eds.). 
-ESCOM Science Publishers: Leiden, 1993, 523–550.
+ESCOM Science Publishers: Leiden, 1993, 523–550.  
 [10] Galindo-Prieto B, *et al*. Variable influence on projection (VIP) for
 orthogonal projections to latent structures (OPLS). *J Chemometrics*. 2014,
 28(8), 623-632. [Link](https://analyticalsciencejournals.onlinelibrary.wiley.com/doi/full/10.1002/cem.2627)
