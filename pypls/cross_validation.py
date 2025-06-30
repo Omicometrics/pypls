@@ -726,7 +726,7 @@ class CrossValidation:
         # check nan and inf
         x[np.isnan(x)] = 0.
         x[np.isinf(x)] = 0.
-        return x
+        return np.ascontiguousarray(x, np.float64)
 
     def _create_optimal_model(self, x: np.ndarray, y: np.ndarray) -> None:
         """
